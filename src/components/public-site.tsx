@@ -466,7 +466,9 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
     setState("sending");
     setError("");
     try {
-      const token = (await supabase?.auth.getSession()).data.session?.access_token;
+      const token = supabase
+        ? (await supabase.auth.getSession()).data.session?.access_token
+        : undefined;
       const response = await fetch("/api/support", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
