@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { siteConfig, type Locale } from "@/lib/site-content";
-import { t } from "@/components/site-preferences";
+import { t } from "@/lib/locale";
 
 export function Brand({ locale, compact = false, inverted = false }: { locale: Locale; compact?: boolean; inverted?: boolean }) {
   return (

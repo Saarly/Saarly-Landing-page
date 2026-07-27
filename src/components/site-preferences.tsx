@@ -55,6 +55,3 @@ export function useSitePreferences() {
   return value;
 }
 
-export function t<T extends { ar: string; en: string }>(item: T, locale: Locale) {
-  return locale === "ar" ? item.ar : item.en;
-}

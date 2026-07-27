@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
-import { t, useSitePreferences } from "@/components/site-preferences";
+import { useSitePreferences } from "@/components/site-preferences";
+import { t } from "@/lib/locale";
 import {
   faqs,
   howSteps,
