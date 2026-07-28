@@ -7,12 +7,16 @@ import { portalPost } from "@/components/merchant/portal-client";
 import { Notice, PortalPanel } from "@/components/merchant/portal-ui";
 import { rows, safeExternalUrl, text } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
+import type { ThemeMode } from "@/components/site-preferences";
+import type { Locale } from "@/lib/site-content";
 
 export function SettingsSection({ payload, locale, notify }: SectionProps) {
   const profile = payload.account.profile;
   const settingsAds = rows(payload.data.settingsAds);
-  const [language, setLanguage] = useState(text(profile.preferred_language, locale) === "en" ? "en" : "ar");
-  const [theme, setTheme] = useState(["light", "dark", "system"].includes(text(profile.theme)) ? text(profile.theme) : "system");
+  const [language, setLanguage] = useState<Locale>(text(profile.preferred_language, locale) === "en" ? "en" : "ar");
+  const savedTheme = text(profile.theme);
+  const initialTheme: ThemeMode = savedTheme === "light" || savedTheme === "dark" ? savedTheme : "system";
+  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 

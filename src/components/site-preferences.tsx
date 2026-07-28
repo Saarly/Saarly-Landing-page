@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Locale } from "@/lib/site-content";
 
-type ThemeMode = "light" | "dark" | "system";
+export type ThemeMode = "light" | "dark" | "system";
 type Preferences = {
   locale: Locale;
   theme: ThemeMode;

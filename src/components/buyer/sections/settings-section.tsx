@@ -7,7 +7,8 @@ import { buyerPost } from "@/components/buyer/portal-client";
 import { Notice, PortalPanel } from "@/components/merchant/portal-ui";
 import { row, rows, text } from "@/components/merchant/portal-utils";
 import type { BuyerSectionProps } from "@/components/buyer/section-props";
-import { useSitePreferences } from "@/components/site-preferences";
+import { useSitePreferences, type ThemeMode } from "@/components/site-preferences";
+import type { Locale } from "@/lib/site-content";
 
 export function BuyerSettingsSection({ payload, locale, refresh, notify }: BuyerSectionProps) {
   const { setLocale, setTheme } = useSitePreferences();
@@ -16,8 +17,8 @@ export function BuyerSettingsSection({ payload, locale, refresh, notify }: Buyer
   const options = rows(payload.data.locationOptions).filter((item) => item.is_country_marker !== true);
   const [fullName, setFullName] = useState(text(profile.full_name));
   const [mobile, setMobile] = useState(text(profile.mobile));
-  const [language, setLanguage] = useState(text(profile.preferred_language, locale) === "en" ? "en" : "ar");
-  const [theme, setLocalTheme] = useState(text(profile.theme, "light") === "dark" ? "dark" : "light");
+  const [language, setLanguage] = useState<Locale>(text(profile.preferred_language, locale) === "en" ? "en" : "ar");
+  const [theme, setLocalTheme] = useState<ThemeMode>(text(profile.theme, "light") === "dark" ? "dark" : "light");
   const [cityId, setCityId] = useState(text(savedLocation.city_id));
   const [latitude, setLatitude] = useState(text(savedLocation.latitude));
   const [longitude, setLongitude] = useState(text(savedLocation.longitude));
