@@ -227,8 +227,8 @@ export function HomePage() {
   const merchantHowSteps = [
     { number: "01", icon: "upload" as IconName, arTitle: "سجّل متجرك", enTitle: "Register your store", arBody: "ابدأ التسجيل من الموقع أو التطبيق وأدخل بيانات المتجر الأساسية.", enBody: "Start registration on the website or app and enter the core store details." },
     { number: "02", icon: "shield" as IconName, arTitle: "أكمل التحقق", enTitle: "Complete verification", arBody: "ارفع المستندات المطلوبة وتابع حالة المراجعة بوضوح.", enBody: "Upload the required documents and follow the review status clearly." },
-    { number: "03", icon: "quote" as IconName, arTitle: "استقبل الطلبات", enTitle: "Receive requests", arBody: "بعد الاعتماد، تصل طلبات التسعير المناسبة إلى مساحة العمل.", enBody: "After approval, relevant quote requests reach your workspace." },
-    { number: "04", icon: "desktop" as IconName, arTitle: "أدِر العمل", enTitle: "Run operations", arBody: "تابع المنتجات والفروع والفريق والطلبات من بوابة واحدة.", enBody: "Manage products, branches, staff, and orders from one portal." },
+    { number: "03", icon: "quote" as IconName, arTitle: "استقبل الطلبات", enTitle: "Receive requests", arBody: "بعد الاعتماد قم برفع منتجاتك واستقبل الطلبات في واجهة منظمة سهلة الإدارة.", enBody: "After approval, upload your products and receive requests in an organised, easy-to-manage interface." },
+    { number: "04", icon: "desktop" as IconName, arTitle: "أدِر العمل", enTitle: "Run operations", arBody: "تابع المنتجات والفروع والفريق والطلبات من مكان واحد.", enBody: "Manage products, branches, staff, and orders from one place." },
   ];
 
   return (
@@ -242,14 +242,14 @@ export function HomePage() {
             <h1>
               {locale === "ar" ? (
                 <>
-                  <span className="hero-title-line">اطلب احتياجاتك</span>
-                  <span className="hero-title-line">وقارن عروض المتاجر</span>
+                  <span className="hero-title-line">اطلب احتياجاتك وقارن</span>
+                  <span className="hero-title-line">عروض المتاجر</span>
                   <span className="hero-title-line hero-title-accent">في مكان واحد</span>
                 </>
               ) : (
                 <>
-                  <span className="hero-title-line">Request what you need</span>
-                  <span className="hero-title-line">and compare store offers</span>
+                  <span className="hero-title-line">Request what you need and compare</span>
+                  <span className="hero-title-line">store offers</span>
                   <span className="hero-title-line hero-title-accent">in one place</span>
                 </>
               )}
@@ -282,7 +282,7 @@ export function HomePage() {
         <SectionHead
           eyebrow={locale === "ar" ? "كيف يعمل سعرلي" : "How Saarly works"}
           title={locale === "ar" ? "رحلتان واضحتان للمشتري والمتجر" : "Two clear journeys for buyers and stores"}
-          body={locale === "ar" ? "كل طرف يرى الخطوات التي تخصه فقط، من البداية وحتى الوصول إلى النتيجة المطلوبة، بدون تكرار أو تعقيد." : "Each side sees only the steps that matter, from the first action to the intended outcome, without repetition or unnecessary complexity."}
+          body={locale === "ar" ? "كل طرف يرى الخطوات التي تخصه فقط، من البداية وحتى الوصول إلى النتيجة المطلوبة." : "Each side sees only the steps that matter, from the first action to the intended outcome."}
         />
         <div className="journey-stack">
           <article className="journey-panel buyer-journey reveal" data-reveal>
@@ -312,7 +312,7 @@ export function HomePage() {
               <div>
                 <span className="eyebrow">{locale === "ar" ? "للمتجر" : "For stores"}</span>
                 <h3>{locale === "ar" ? "من التسجيل إلى إدارة العمل في أربع خطوات" : "From registration to daily operations in four steps"}</h3>
-                <p>{locale === "ar" ? "أكمل التسجيل والتحقق، ثم استخدم مساحة موحدة لاستقبال الطلبات وإدارة فريقك." : "Complete registration and verification, then use one workspace to receive requests and manage your team."}</p>
+                <p>{locale === "ar" ? "أكمل التسجيل والتحقق، ثم استخدم واجهة واحدة لاستقبال الطلبات وإدارة فروعك وفريق العمل الخاص بك." : "Complete registration and verification, then use one interface to receive requests and manage your branches and team."}</p>
               </div>
             </header>
             <div className="journey-steps">
@@ -333,7 +333,7 @@ export function HomePage() {
         <div className="container merchant-layout">
           <div className="merchant-copy reveal" data-reveal>
             <span className="eyebrow light"><Icon name="store" />{locale === "ar" ? "مساحة عمل المتجر" : "Store workspace"}</span>
-            <h2>{locale === "ar" ? "كل أدوات التشغيل اليومية في بوابة واحدة واضحة" : "Every daily operation in one clear merchant portal"}</h2>
+            <h2 className="merchant-main-title">{locale === "ar" ? (<><span>كل ما تحتاجه للإدارة</span><span>في مكان واحد</span></>) : (<><span>Everything you need to manage</span><span>in one place</span></>)}</h2>
             <p>{locale === "ar" ? "بعد اعتماد المتجر، استخدم الحساب نفسه لمتابعة المنتجات والفروع والموظفين والطلبات والحساب من الكمبيوتر أو التطبيق." : "After approval, use the same account to manage products, branches, staff, requests, and billing from desktop or mobile."}</p>
             <div className="merchant-cta">
               <Link className="button light-primary" href="/merchant-register">{locale === "ar" ? "ابدأ تسجيل المتجر" : "Start merchant registration"}<Icon name="arrow" /></Link>
@@ -510,7 +510,7 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
       <section className="support-section container">
         <div className="support-copy">
           <span className="eyebrow"><Icon name="mail" />{deletion ? (locale === "ar" ? "طلب حذف الحساب" : "Account deletion") : (locale === "ar" ? "الدعم والمساعدة" : "Support and help")}</span>
-          <h1>{deletion ? (locale === "ar" ? "أرسل الطلب من البريد المرتبط بحسابك" : "Submit from the email linked to your account") : (locale === "ar" ? "احكِ لنا المشكلة وسنتابعها معك" : "Tell us what happened and we will follow it with you")}</h1>
+          <h1>{deletion ? (locale === "ar" ? "أرسل الطلب من البريد المرتبط بحسابك" : "Submit from the email linked to your account") : (locale === "ar" ? (<><span className="support-title-line">احكِ لنا المشكلة</span><span className="support-title-line">وسنتابعها معك</span></>) : (<><span className="support-title-line">Tell us about the problem</span><span className="support-title-line">and we will follow up with you</span></>) )}</h1>
           <p>{locale === "ar" ? "اكتب التفاصيل بوضوح، وأضف البريد المرتبط بالحساب لتسهيل المراجعة والرد." : "Describe the issue clearly and include the email linked to your account to help us review and respond."}</p>
           <div className="support-points">
             <span><Icon name="shield" />{locale === "ar" ? "تُحفظ الطلبات للمراجعة الآمنة" : "Requests are stored for secure review"}</span>
@@ -519,7 +519,7 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
           {siteConfig.supportEmail ? <a className="support-email" href={`mailto:${siteConfig.supportEmail}`}><Icon name="mail" />{siteConfig.supportEmail}</a> : null}
         </div>
         <form className="support-form" onSubmit={submit}>
-          <div className="support-form-head"><span className="feature-icon"><Icon name="mail" /></span><div><h2>{locale === "ar" ? "أرسل طلب دعم" : "Send a support request"}</h2><p>{linkedAccount ? (locale === "ar" ? "أنت مسجل الدخول؛ ستظهر الرسالة داخل نظام الدعم في لوحة الإدارة." : "You are signed in; this message will enter the admin support workflow.") : (locale === "ar" ? "سننشئ تذكرة دعم ونرسل تنبيهًا إلى فريق سعرلي." : "We will create a support ticket and notify the Saarly team.")}</p></div></div>
+          <div className="support-form-head"><span className="feature-icon"><Icon name="mail" /></span><div><h2>{locale === "ar" ? "أرسل طلب دعم" : "Send a support request"}</h2><p>{linkedAccount ? (locale === "ar" ? "أنت مسجل الدخول؛ ستظهر الرسالة داخل نظام الدعم في لوحة الإدارة." : "You are signed in; this message will enter the admin support workflow.") : (locale === "ar" ? "سننشئ تذكرة دعم داخل النظام لتراجعها إدارة سعرلي." : "We will create a support ticket in the Saarly admin system for review.")}</p></div></div>
           {linkedAccount ? <p className="account-linked-notice"><Icon name="shield" size={17} />{locale === "ar" ? "الطلب مرتبط بحسابك الحالي" : "Request linked to your current account"}</p> : null}
           <div className="form-grid">
             <label>{locale === "ar" ? "الاسم" : "Name"}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} autoComplete="name" placeholder={locale === "ar" ? "الاسم الكامل" : "Full name"} /></label>
@@ -527,7 +527,7 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
           </div>
           <label>{locale === "ar" ? "الموضوع" : "Subject"}<input required minLength={3} value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} placeholder={locale === "ar" ? "اكتب عنوانًا مختصرًا للمشكلة" : "Write a short issue title"} /></label>
           <label>{locale === "ar" ? "التفاصيل" : "Details"}<textarea required minLength={10} maxLength={5000} rows={7} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder={locale === "ar" ? "اشرح ما حدث والخطوات التي جربتها" : "Explain what happened and what you already tried"} /></label>
-          {state === "sent" ? <p className="form-success">{deliveryChannel === "conversation" ? (locale === "ar" ? "تم إرسال رسالتك إلى فريق الدعم داخل حسابك." : "Your message was sent to support through your account.") : (locale === "ar" ? "تم إنشاء تذكرة الدعم وإرسال تنبيه إلى فريق سعرلي." : "Your support ticket was created and the Saarly team was notified.")}</p> : null}
+          {state === "sent" ? <p className="form-success">{deliveryChannel === "conversation" ? (locale === "ar" ? "تم إرسال رسالتك إلى فريق الدعم داخل حسابك." : "Your message was sent to support through your account.") : (locale === "ar" ? "تم إنشاء تذكرة الدعم داخل نظام سعرلي لتراجعها الإدارة." : "Your support ticket was created in the Saarly admin support system.")}</p> : null}
           {state === "error" ? <p className="form-error">{locale === "ar" ? `تعذر الإرسال: ${error}` : `Could not send: ${error}`}</p> : null}
           <button className="button primary" type="submit" disabled={state === "sending"}>{state === "sending" ? (locale === "ar" ? "جارٍ الإرسال" : "Sending") : (locale === "ar" ? "إرسال الطلب" : "Send request")}<Icon name="arrow" /></button>
         </form>
