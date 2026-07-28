@@ -168,3 +168,9 @@ test("merchant buyer mode opens the complete buyer portal and keeps a route back
   assert.match(merchantRoute, /section === "buyer".*redirect\("\/buyer"\)/s);
   assert.match(portal, /href="\/merchant"/);
 });
+
+test("buyer offer loader keeps the Row contract for TypeScript production builds", () => {
+  const source = read("src/app/api/buyer/portal/route.ts");
+  assert.match(source, /async function loadOffers\(context: BuyerContext, limit = 120\): Promise<Row\[]>/);
+  assert.match(source, /return offerRows\.map\(\(offer\): Row =>/);
+});
