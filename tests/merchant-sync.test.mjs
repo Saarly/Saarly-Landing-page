@@ -14,7 +14,7 @@ const [branches, portalRoute, uploadRoute, overview, store] = await Promise.all(
 test("branch editor captures manager ID front and back", () => {
   assert.match(branches, /managerIdFront/);
   assert.match(branches, /managerIdBack/);
-  assert.match(portalRoute, /upsert_my_branch_manager_documents/);
+  assert.match(portalRoute, /save_my_merchant_branch_web/);
 });
 
 test("branch commercial register can reuse the parent or upload a separate file", () => {

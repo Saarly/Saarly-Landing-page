@@ -8,7 +8,8 @@ import { useSitePreferences } from "@/components/site-preferences";
 import { merchantRememberSessionEnabled, setMerchantRememberSession, supabase, supabaseConfigured } from "@/lib/supabase";
 
 const messages: Record<string, { ar: string; en: string }> = {
-  merchant_account_required: { ar: "هذا الحساب غير مرتبط بمتجر. سجّل المتجر من التطبيق أولًا.", en: "This account is not linked to a store. Register the store in the app first." },
+  merchant_account_required: { ar: "هذا الحساب غير مرتبط بمتجر. تقدر تسجل متجر جديد من الموقع.", en: "This account is not linked to a store. You can register a new store on the website." },
+  buyer_account_not_allowed: { ar: "هذا البريد مسجل كمشتري. استخدم بريد متجر مختلف.", en: "This email is registered as a buyer. Use a different merchant email." },
   account_blocked: { ar: "هذا الحساب موقوف. تواصل مع الدعم.", en: "This account is blocked. Contact support." },
   merchant_not_approved_for_staff: { ar: "لا يمكن للموظف الدخول قبل اعتماد المتجر.", en: "Staff cannot enter before the store is approved." },
   merchant_pending_approval: { ar: "طلب المتجر ما زال قيد المراجعة. ستتمكن من دخول البوابة بعد الموافقة النهائية.", en: "The store application is still under review. Portal access starts after final approval." },
@@ -104,8 +105,13 @@ export function MerchantLoginForm() {
       });
       const payload = await response.json();
       if (!response.ok) {
+        const code = String(payload.error ?? "");
+        if (["merchant_account_required", "merchant_pending_approval", "merchant_registration_rejected", "profile_incomplete"].includes(code)) {
+          window.location.assign("/merchant-register");
+          return;
+        }
         await supabase.auth.signOut({ scope: "local" });
-        const known = messages[String(payload.error)];
+        const known = messages[code];
         showMessage(
           known ? (locale === "ar" ? known.ar : known.en) : (locale === "ar" ? "لا يمكن فتح بوابة المتجر بهذا الحساب." : "This account cannot open the merchant portal."),
           "error",
@@ -153,7 +159,7 @@ export function MerchantLoginForm() {
           </form>
         )}
 
-        <div className="auth-links"><Link href="/support">{locale === "ar" ? "تحتاج مساعدة؟" : "Need help?"}</Link><Link href="/">{locale === "ar" ? "العودة للموقع" : "Back to website"}</Link></div>
+        <div className="auth-links auth-links-wrap"><Link href="/merchant-register">{locale === "ar" ? "تسجيل متجر جديد" : "Register a new store"}</Link><Link href="/support">{locale === "ar" ? "تحتاج مساعدة؟" : "Need help?"}</Link><Link href="/">{locale === "ar" ? "العودة للموقع" : "Back to website"}</Link></div>
       </section>
     </AuthShell>
   );

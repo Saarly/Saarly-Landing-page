@@ -22,7 +22,7 @@ const permissionOptions = [
   { key: "referrals", ar: "الدعوات", en: "Referrals" },
   { key: "support", ar: "الدعم", en: "Support" },
   { key: "settings", ar: "الإعدادات", en: "Settings" },
-  { key: "buyer_mode", ar: "التصفح كمشتري من التطبيق", en: "Browse as buyer in the app" },
+  { key: "buyer_mode", ar: "التصفح كمشتري", en: "Browse as buyer" },
 ];
 
 export function EmployeesSection({ payload, locale, refresh, notify }: SectionProps) {

@@ -1,0 +1,46 @@
+"use client";
+
+import Link from "next/link";
+import { Icon } from "@/components/icons";
+import { EmptyState, MetricCard, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
+import { buyerNotificationTarget, dateLabel, money, numberValue, row, rows, safeExternalUrl, text } from "@/components/merchant/portal-utils";
+import type { BuyerSectionProps } from "@/components/buyer/section-props";
+
+export function BuyerHomeSection({ payload, locale }: BuyerSectionProps) {
+  const data = payload.data;
+  const counts = row(data.counts);
+  const currency = payload.account.currencyCode || "EGP";
+  const ads = rows(data.ads);
+  const quotes = rows(data.quotes);
+  const offers = rows(data.offers);
+  const orders = rows(data.orders);
+  const notifications = rows(data.recentNotifications);
+
+  return <div className="portal-section-stack">
+    <div className="metrics-grid">
+      <MetricCard icon="quote" label={locale === "ar" ? "طلبات التسعير" : "Quote requests"} value={numberValue(counts.quotes)} note={locale === "ar" ? "كل الطلبات المحفوظة" : "All saved requests"}/>
+      <MetricCard icon="compare" label={locale === "ar" ? "العروض الجاهزة" : "Ready offers"} value={numberValue(counts.offers)} tone="blue"/>
+      <MetricCard icon="receipt" label={locale === "ar" ? "الطلبات المقبولة" : "Accepted orders"} value={numberValue(counts.orders)} tone="gold"/>
+      <MetricCard icon="target" label={locale === "ar" ? "المفضلة" : "Favorites"} value={numberValue(counts.favorites)} tone="gray"/>
+    </div>
+
+    {ads.length ? <div className="buyer-ad-grid">{ads.map((ad) => { const href = safeExternalUrl(ad.target_url); const content = <><img src={text(ad.image_url)} alt={locale === "ar" ? text(ad.title_ar) : text(ad.title_en)}/><span>{locale === "ar" ? text(ad.title_ar) : text(ad.title_en)}</span></>; return href ? <a className="portal-ad" href={href} target="_blank" rel="noreferrer" key={text(ad.id)}>{content}</a> : <article className="portal-ad" key={text(ad.id)}>{content}</article>; })}</div> : null}
+
+    <PortalPanel title={locale === "ar" ? "ابدأ طلبك" : "Start a request"} subtitle={locale === "ar" ? "نفس طرق الطلب الموجودة في التطبيق: يدوي أو صورة أو PDF أو تسجيل صوتي." : "The same request methods available in the app: manual, image, PDF, or voice."}>
+      <div className="buyer-quick-actions"><Link className="quick-action-card" href="/buyer/requests?new=manual"><Icon name="quote"/><strong>{locale === "ar" ? "طلب يدوي" : "Manual request"}</strong><span>{locale === "ar" ? "اكتب المنتجات والكميات" : "Enter items and quantities"}</span></Link><Link className="quick-action-card" href="/buyer/requests?new=image"><Icon name="upload"/><strong>{locale === "ar" ? "صورة قائمة" : "List image"}</strong><span>{locale === "ar" ? "ارفع صورة وسيتم تحليلها" : "Upload and analyze an image"}</span></Link><Link className="quick-action-card" href="/buyer/requests?new=pdf"><Icon name="receipt"/><strong>PDF</strong><span>{locale === "ar" ? "فاتورة أو ملف منتجات" : "Invoice or product file"}</span></Link><Link className="quick-action-card" href="/buyer/requests?new=voice"><Icon name="quote"/><strong>{locale === "ar" ? "تسجيل صوتي" : "Voice request"}</strong><span>{locale === "ar" ? "سجّل أو ارفع صوتًا" : "Record or upload audio"}</span></Link></div>
+    </PortalPanel>
+
+    <div className="portal-two-columns">
+      <PortalPanel title={locale === "ar" ? "أحدث الطلبات والعروض" : "Latest requests and offers"} action={<Link className="button secondary compact" href="/buyer/requests">{locale === "ar" ? "عرض الكل" : "View all"}</Link>}>
+        {quotes.length || offers.length ? <div className="detail-list compact">{quotes.slice(0, 4).map((quote) => <Link href={`/buyer/requests?focus=${text(quote.id)}`} data-record-id={text(quote.id)} key={text(quote.id)}><div><strong>{locale === "ar" ? `طلب ${text(quote.id).slice(0, 8)}` : `Request ${text(quote.id).slice(0, 8)}`}</strong><small>{dateLabel(quote.created_at, locale)}</small></div><StatusBadge value={quote.ai_review_status} locale={locale}/></Link>)}{offers.slice(0, 4).map((offer) => <Link href={`/buyer/requests?focus=${text(offer.quote_request_id || offer.id)}`} key={`offer-${text(offer.id)}`}><div><strong>{text(offer.store_name, locale === "ar" ? "عرض متجر" : "Store offer")}</strong><small>{money(offer.total_price_snapshot, currency, locale)}</small></div><StatusBadge value={offer.status} locale={locale}/></Link>)}</div> : <EmptyState icon="quote" title={locale === "ar" ? "لسه مفيش طلبات" : "No requests yet"} body={locale === "ar" ? "ابدأ أول طلب تسعير من الأزرار اللي فوق." : "Start your first quote request using the buttons above."}/>} 
+      </PortalPanel>
+      <PortalPanel title={locale === "ar" ? "آخر الطلبات المقبولة" : "Latest accepted orders"} action={<Link className="button secondary compact" href="/buyer/orders">{locale === "ar" ? "متابعة الطلبات" : "Track orders"}</Link>}>
+        {orders.length ? <div className="detail-list compact">{orders.slice(0, 6).map((order) => <Link href={`/buyer/orders?focus=${text(order.id)}`} data-record-id={text(order.id)} key={text(order.id)}><div><strong>{locale === "ar" ? `طلب #${text(order.id).slice(0, 8)}` : `Order #${text(order.id).slice(0, 8)}`}</strong><small>{dateLabel(order.accepted_at || order.created_at, locale)}</small></div><StatusBadge value={order.status} locale={locale}/></Link>)}</div> : <EmptyState icon="receipt" title={locale === "ar" ? "مفيش طلبات مقبولة" : "No accepted orders"} body={locale === "ar" ? "بعد ما توافق على عرض هتلاقي الطلب هنا." : "Accepted offers will appear here as orders."}/>} 
+      </PortalPanel>
+    </div>
+
+    <PortalPanel title={locale === "ar" ? "أحدث الإشعارات" : "Latest notifications"} action={<Link className="button secondary compact" href="/buyer/notifications">{locale === "ar" ? "كل الإشعارات" : "All notifications"}</Link>}>
+      {notifications.length ? <div className="notification-mini-list">{notifications.map((item) => <Link key={text(item.id)} href={buyerNotificationTarget(item.deep_link, item.payload)} className={item.is_read === true ? "" : "unread"}><Icon name="bell"/><div><strong>{locale === "ar" ? text(item.title_ar) : text(item.title_en)}</strong><p>{locale === "ar" ? text(item.body_ar) : text(item.body_en)}</p></div><small>{dateLabel(item.created_at, locale)}</small></Link>)}</div> : <EmptyState icon="bell" title={locale === "ar" ? "مفيش إشعارات جديدة" : "No new notifications"} body={locale === "ar" ? "الإشعارات المهمة هتظهر هنا." : "Important updates will appear here."}/>} 
+    </PortalPanel>
+  </div>;
+}

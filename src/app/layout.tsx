@@ -32,7 +32,14 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, colo
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body><SitePreferencesProvider>{children}</SitePreferencesProvider></body>
+      <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var l=localStorage.getItem('saarly-locale')==='en'?'en':'ar';var t=localStorage.getItem('saarly-theme');t=t==='light'||t==='dark'?t:'system';var r=document.documentElement;r.lang=l;r.dir=l==='ar'?'rtl':'ltr';r.dataset.theme=t;r.style.colorScheme=t==='system'?'light dark':t;}catch(e){}})();`,
+          }}
+        />
+        <SitePreferencesProvider>{children}</SitePreferencesProvider>
+      </body>
     </html>
   );
 }

@@ -11,13 +11,24 @@ type Preferences = {
   setTheme: (theme: ThemeMode) => void;
 };
 
-const Context = createContext<Preferences | null>(null);
+const noop = () => undefined;
+const fallbackPreferences: Preferences = { locale: "ar", theme: "system", setLocale: noop, setTheme: noop };
+const Context = createContext<Preferences>(fallbackPreferences);
 
 function apply(locale: Locale, theme: ThemeMode) {
   const root = document.documentElement;
   root.lang = locale;
   root.dir = locale === "ar" ? "rtl" : "ltr";
   root.dataset.theme = theme;
+  root.style.colorScheme = theme === "system" ? "light dark" : theme;
+}
+
+function readStoredPreferences(): { locale: Locale; theme: ThemeMode } {
+  if (typeof window === "undefined") return { locale: "ar", theme: "system" };
+  const locale: Locale = window.localStorage.getItem("saarly-locale") === "en" ? "en" : "ar";
+  const storedTheme = window.localStorage.getItem("saarly-theme");
+  const theme: ThemeMode = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "system";
+  return { locale, theme };
 }
 
 export function SitePreferencesProvider({ children }: { children: ReactNode }) {
@@ -25,12 +36,10 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>("system");
 
   useEffect(() => {
-    const storedLocale = localStorage.getItem("saarly-locale") === "en" ? "en" : "ar";
-    const storedTheme = localStorage.getItem("saarly-theme");
-    const nextTheme: ThemeMode = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "system";
-    setLocaleState(storedLocale);
-    setThemeState(nextTheme);
-    apply(storedLocale, nextTheme);
+    const stored = readStoredPreferences();
+    setLocaleState(stored.locale);
+    setThemeState(stored.theme);
+    apply(stored.locale, stored.theme);
   }, []);
 
   function setLocale(next: Locale) {
@@ -50,8 +59,5 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
 }
 
 export function useSitePreferences() {
-  const value = useContext(Context);
-  if (!value) throw new Error("SitePreferencesProvider_missing");
-  return value;
+  return useContext(Context);
 }
-

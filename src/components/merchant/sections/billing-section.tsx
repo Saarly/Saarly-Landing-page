@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost, portalUpload } from "@/components/merchant/portal-client";
 import { EmptyState, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { dateLabel, money, row, rows, text } from "@/components/merchant/portal-utils";
+import { dateLabel, money, row, rows, statusLabel, text } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
 export function BillingSection({ payload, locale, refresh, notify }: SectionProps) {
@@ -27,6 +27,7 @@ export function BillingSection({ payload, locale, refresh, notify }: SectionProp
   const [sending, setSending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const isOwner = payload.account.isOwner;
+  const currency = text(data.currencyCode || payload.account.currencyCode, "EGP");
 
   const activeSubscription = subscriptions.find((item) => ["active", "trialing", "past_due"].includes(text(item.status))) ?? subscriptions[0];
   const chosenPlan = plans.find((plan) => text(plan.id) === selectedPlan);
@@ -75,9 +76,9 @@ export function BillingSection({ payload, locale, refresh, notify }: SectionProp
     {flags.monetizationEnabled !== true ? <Notice tone="info" title={locale === "ar" ? "المحاسبة غير مفعلة حاليًا" : "Monetization is currently disabled"}>{locale === "ar" ? "يمكنك استخدام البوابة، وستظهر الخطط وطرق الدفع عند تفعيل النظام من الإدارة." : "You can use the portal; plans and payment methods will appear when enabled by administration."}</Notice> : null}
 
     <div className="metrics-grid billing-metrics">
-      <article className="metric-card green"><span className="metric-icon"><Icon name="shield"/></span><div><p>{locale === "ar" ? "حالة الوصول" : "Access status"}</p><strong>{text(status.access_status, locale === "ar" ? "غير محدد" : "Unknown")}</strong><small>{status.can_receive_orders ? (locale === "ar" ? "يستقبل طلبات جديدة" : "Receiving new work") : (locale === "ar" ? "استقبال الطلبات متوقف" : "New work paused")}</small></div></article>
-      <article className="metric-card blue"><span className="metric-icon"><Icon name="clock"/></span><div><p>{locale === "ar" ? "النهاية الحالية" : "Current end date"}</p><strong>{dateLabel(status.effective_access_until || activeSubscription?.ends_at, locale)}</strong><small>{text(activeSubscription?.status)}</small></div></article>
-      <article className="metric-card gold"><span className="metric-icon"><Icon name="money"/></span><div><p>{locale === "ar" ? "الرصيد المستحق" : "Balance due"}</p><strong>{money(status.balance_due || activeSubscription?.balance_due, "EGP", locale)}</strong><small>{locale === "ar" ? "وفق السجل المحاسبي" : "Based on billing ledger"}</small></div></article>
+      <article className="metric-card green"><span className="metric-icon"><Icon name="shield"/></span><div><p>{locale === "ar" ? "حالة الوصول" : "Access status"}</p><strong>{statusLabel(status.access_status, locale)}</strong><small>{status.can_receive_orders ? (locale === "ar" ? "يستقبل طلبات جديدة" : "Receiving new work") : (locale === "ar" ? "استقبال الطلبات متوقف" : "New work paused")}</small></div></article>
+      <article className="metric-card blue"><span className="metric-icon"><Icon name="clock"/></span><div><p>{locale === "ar" ? "النهاية الحالية" : "Current end date"}</p><strong>{dateLabel(status.effective_access_until || activeSubscription?.ends_at, locale)}</strong><small>{statusLabel(activeSubscription?.status, locale)}</small></div></article>
+      <article className="metric-card gold"><span className="metric-icon"><Icon name="money"/></span><div><p>{locale === "ar" ? "الرصيد المستحق" : "Balance due"}</p><strong>{money(status.balance_due || activeSubscription?.balance_due, currency, locale)}</strong><small>{locale === "ar" ? "وفق السجل المحاسبي" : "Based on billing ledger"}</small></div></article>
     </div>
 
     <PortalPanel title={locale === "ar" ? "نظام محاسبة المتجر" : "Store billing model"} subtitle={locale === "ar" ? "اختر الاشتراك الشهري أو العمولة عندما تكون الأنظمة مفعلة من الإدارة." : "Choose monthly subscription or commission when those models are enabled by administration."}>

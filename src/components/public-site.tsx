@@ -112,8 +112,11 @@ export function SiteNav() {
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} />
             </button>
+            <Link className="button secondary compact buyer-login-button" href="/login" onClick={() => setOpen(false)}>
+              {locale === "ar" ? "دخول المشتري" : "Buyer sign in"}
+            </Link>
             <Link className="button secondary compact merchant-login-button" href="/merchant-login" onClick={() => setOpen(false)}>
-              {locale === "ar" ? "تسجيل دخول للمتجر" : "Merchant sign in"}
+              {locale === "ar" ? "دخول المتجر" : "Merchant sign in"}
             </Link>
             <Link className="button primary compact nav-download-button" href="/#download" onClick={() => setOpen(false)}>
               {locale === "ar" ? "حمّل التطبيق" : "Get the app"}
@@ -222,7 +225,7 @@ export function HomePage() {
   ];
 
   const merchantHowSteps = [
-    { number: "01", icon: "upload" as IconName, arTitle: "سجّل متجرك", enTitle: "Register your store", arBody: "ابدأ التسجيل من التطبيق وأدخل بيانات المتجر الأساسية.", enBody: "Start registration in the app and enter the core store details." },
+    { number: "01", icon: "upload" as IconName, arTitle: "سجّل متجرك", enTitle: "Register your store", arBody: "ابدأ التسجيل من الموقع أو التطبيق وأدخل بيانات المتجر الأساسية.", enBody: "Start registration on the website or app and enter the core store details." },
     { number: "02", icon: "shield" as IconName, arTitle: "أكمل التحقق", enTitle: "Complete verification", arBody: "ارفع المستندات المطلوبة وتابع حالة المراجعة بوضوح.", enBody: "Upload the required documents and follow the review status clearly." },
     { number: "03", icon: "quote" as IconName, arTitle: "استقبل الطلبات", enTitle: "Receive requests", arBody: "بعد الاعتماد، تصل طلبات التسعير المناسبة إلى مساحة العمل.", enBody: "After approval, relevant quote requests reach your workspace." },
     { number: "04", icon: "desktop" as IconName, arTitle: "أدِر العمل", enTitle: "Run operations", arBody: "تابع المنتجات والفروع والفريق والطلبات من بوابة واحدة.", enBody: "Manage products, branches, staff, and orders from one portal." },
@@ -255,7 +258,7 @@ export function HomePage() {
             <div className="hero-actions">
               <a className="button primary hero-primary" href="#download">{locale === "ar" ? "حمّل التطبيق" : "Get the app"}<Icon name="arrow" /></a>
               <a className="button secondary" href="#how-it-works">{locale === "ar" ? "شاهد طريقة العمل" : "See how it works"}<Icon name="history" size={18} /></a>
-              <Link className="button secondary" href="/merchant-login">{locale === "ar" ? "تسجيل دخول للمتجر" : "Merchant sign in"}<Icon name="store" size={18} /></Link>
+              <Link className="button primary" href="/merchant-register">{locale === "ar" ? "سجل متجرك" : "Register your store"}<Icon name="plus" size={18} /></Link><Link className="button secondary" href="/merchant-login">{locale === "ar" ? "دخول المتجر" : "Merchant sign in"}<Icon name="store" size={18} /></Link><Link className="button secondary" href="/login">{locale === "ar" ? "دخول المشتري" : "Buyer sign in"}<Icon name="receipt" size={18} /></Link>
             </div>
             <div className="hero-trust">
               <span><Icon name="shield" />{locale === "ar" ? "بياناتك محمية" : "Protected data"}</span>
@@ -333,7 +336,7 @@ export function HomePage() {
             <h2>{locale === "ar" ? "كل أدوات التشغيل اليومية في بوابة واحدة واضحة" : "Every daily operation in one clear merchant portal"}</h2>
             <p>{locale === "ar" ? "بعد اعتماد المتجر، استخدم الحساب نفسه لمتابعة المنتجات والفروع والموظفين والطلبات والحساب من الكمبيوتر أو التطبيق." : "After approval, use the same account to manage products, branches, staff, requests, and billing from desktop or mobile."}</p>
             <div className="merchant-cta">
-              <Link className="button light-primary" href="/merchant-login">{locale === "ar" ? "تسجيل دخول للمتجر" : "Merchant sign in"}<Icon name="arrow" /></Link>
+              <Link className="button light-primary" href="/merchant-register">{locale === "ar" ? "ابدأ تسجيل المتجر" : "Start merchant registration"}<Icon name="arrow" /></Link>
               <a className="button light-secondary" href="#download">{locale === "ar" ? "سجّل متجرك من التطبيق" : "Register through the app"}</a>
             </div>
           </div>
@@ -554,7 +557,7 @@ export function SiteFooter() {
           {siteConfig.supportEmail ? <a href={`mailto:${siteConfig.supportEmail}`} className="footer-contact"><Icon name="mail" size={18} />{siteConfig.supportEmail}</a> : null}
         </div>
         <div><h3>{locale === "ar" ? "استكشف" : "Explore"}</h3><Link href="/#how-it-works">{locale === "ar" ? "كيف يعمل" : "How it works"}</Link><Link href="/#trust">{locale === "ar" ? "الثقة والأمان" : "Trust and safety"}</Link><Link href="/#merchants">{locale === "ar" ? "للمتاجر" : "For merchants"}</Link><Link href="/#faq">{locale === "ar" ? "الأسئلة الشائعة" : "FAQ"}</Link></div>
-        <div><h3>{locale === "ar" ? "الحساب والدعم" : "Account and support"}</h3><Link href="/merchant-login">{locale === "ar" ? "تسجيل دخول للمتجر" : "Merchant sign in"}</Link><Link href="/support">{locale === "ar" ? "طلب دعم" : "Support request"}</Link>{links.slice(0, 2).map((item) => <Link href={item.href} key={item.href}>{locale === "ar" ? item.ar : item.en}</Link>)}</div>
+        <div><h3>{locale === "ar" ? "الحساب والدعم" : "Account and support"}</h3><Link href="/login">{locale === "ar" ? "دخول أو إنشاء حساب مشتري" : "Buyer sign in or sign up"}</Link><Link href="/merchant-register">{locale === "ar" ? "تسجيل متجر جديد" : "Register a new store"}</Link><Link href="/merchant-login">{locale === "ar" ? "تسجيل دخول للمتجر" : "Merchant sign in"}</Link><Link href="/support">{locale === "ar" ? "طلب دعم" : "Support request"}</Link>{links.slice(0, 2).map((item) => <Link href={item.href} key={item.href}>{locale === "ar" ? item.ar : item.en}</Link>)}</div>
         <div><h3>{locale === "ar" ? "السياسات" : "Policies"}</h3>{links.slice(2).map((item) => <Link href={item.href} key={item.href}>{locale === "ar" ? item.ar : item.en}</Link>)}</div>
       </div>
       <div className="container footer-bottom"><span>© {year} {label(siteConfig.name, locale)}</span><span>{locale === "ar" ? "صوّر، قارن، وفّر" : "Capture, compare, save"}</span></div>

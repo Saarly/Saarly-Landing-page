@@ -5,34 +5,52 @@ export const publicLinks = [
   { href: "/support", ar: "الدعم", en: "Support" },
   { href: "/privacy", ar: "الخصوصية", en: "Privacy" },
   { href: "/terms", ar: "الشروط", en: "Terms" },
+  { href: "/login", ar: "دخول المشتري", en: "Buyer login" },
   { href: "/merchant-login", ar: "دخول التاجر", en: "Merchant login" }
 ];
+
+
+export const buyerLinks = [
+  { href: "/buyer", ar: "الرئيسية", en: "Home" },
+  { href: "/buyer/requests", ar: "طلباتي والعروض", en: "Requests & offers" },
+  { href: "/buyer/orders", ar: "الطلبات المقبولة", en: "Orders" },
+  { href: "/buyer/stores", ar: "المتاجر والمنتجات", en: "Stores & products" },
+  { href: "/buyer/favorites", ar: "المفضلة", en: "Favorites" },
+  { href: "/buyer/alerts", ar: "تنبيهات الأسعار", en: "Price alerts" },
+  { href: "/buyer/notifications", ar: "الإشعارات", en: "Notifications" },
+  { href: "/buyer/referrals", ar: "ادعُ أصحابك", en: "Referrals" },
+  { href: "/buyer/support", ar: "الدعم والمساعدة", en: "Support" },
+  { href: "/buyer/settings", ar: "الإعدادات", en: "Settings" },
+];
+
+export const buyerSections = new Set([
+  "requests", "orders", "stores", "favorites", "alerts", "notifications", "referrals", "support", "settings",
+]);
 
 export const merchantLinks = [
   { href: "/merchant", ar: "الرئيسية", en: "Overview" },
   { href: "/merchant/store", ar: "المتجر", en: "Store" },
   { href: "/merchant/products", ar: "المنتجات", en: "Products" },
+  { href: "/merchant/imports", ar: "استيراد المنتجات", en: "Product imports" },
   { href: "/merchant/requests", ar: "التسعير", en: "Requests" },
   { href: "/merchant/orders", ar: "الطلبات", en: "Orders" },
   { href: "/merchant/branches", ar: "الفروع", en: "Branches" },
+  { href: "/merchant/hours", ar: "مواعيد العمل", en: "Working hours" },
+  { href: "/merchant/delivery", ar: "التوصيل والشحن", en: "Delivery" },
+  { href: "/merchant/reports", ar: "التقارير", en: "Reports" },
+  { href: "/merchant/reviews", ar: "التقييمات", en: "Reviews" },
   { href: "/merchant/employees", ar: "الموظفون", en: "Employees" },
   { href: "/merchant/notifications", ar: "الإشعارات", en: "Notifications" },
+  { href: "/merchant/referrals", ar: "الدعوات", en: "Referrals" },
+  { href: "/merchant/support", ar: "دعم سعرلي", en: "Saarly support" },
+  { href: "/buyer", ar: "وضع المشتري", en: "Buyer mode" },
   { href: "/merchant/billing", ar: "الاشتراك", en: "Billing" },
   { href: "/merchant/payments", ar: "المدفوعات", en: "Payments" },
   { href: "/merchant/settings", ar: "الإعدادات", en: "Settings" }
 ];
 
 export const merchantSections = new Set([
-  "store",
-  "products",
-  "requests",
-  "orders",
-  "branches",
-  "employees",
-  "notifications",
-  "billing",
-  "payments",
-  "settings"
+  "store", "products", "imports", "requests", "orders", "branches", "hours", "delivery", "reports", "reviews", "employees", "notifications", "referrals", "support", "buyer", "billing", "payments", "settings"
 ]);
 
 export const policies = {
