@@ -98,7 +98,7 @@ async function loadQuotes(context: BuyerContext, limit = 60) {
   return ((quotes.data ?? []) as Row[]).map((item) => ({ ...item, direct_contact: contactMap.get(value(item.id)) ?? null }));
 }
 
-async function loadOffers(context: BuyerContext, limit = 120) {
+async function loadOffers(context: BuyerContext, limit = 120): Promise<Row[]> {
   const offers = await context.userDb.from("buyer_offer_results").select("*")
     .order("generated_at", { ascending: false }).order("ranking", { ascending: true }).limit(limit);
   if (offers.error) throw new PortalError(offers.error.message, 400);
@@ -112,7 +112,7 @@ async function loadOffers(context: BuyerContext, limit = 120) {
   for (const item of (items.data ?? []) as Row[]) {
     const key = value(item.offer_id); itemMap.set(key, [...(itemMap.get(key) ?? []), item]);
   }
-  return offerRows.map((offer) => ({ ...offer, items: itemMap.get(value(offer.id)) ?? [] }));
+  return offerRows.map((offer): Row => ({ ...offer, items: itemMap.get(value(offer.id)) ?? [] }));
 }
 
 async function loadRfqResponses(context: BuyerContext) {
@@ -374,7 +374,7 @@ async function approveAnalyzedQuote(context: BuyerContext, body: Row) {
   const inserted = await context.service.from("quote_items").insert(items);
   if (inserted.error) {
     if ((existingItems.data ?? []).length) {
-      await context.service.from("quote_items").insert((existingItems.data ?? []).map((item) => ({ quote_request_id: quoteId, ...item })));
+      await context.service.from("quote_items").insert((existingItems.data ?? []).map((item: Row) => ({ quote_request_id: quoteId, ...item })));
     }
     throw new PortalError(inserted.error.message, 400);
   }
@@ -390,7 +390,7 @@ async function approveAnalyzedQuote(context: BuyerContext, body: Row) {
   if (updated.error) {
     await context.service.from("quote_items").delete().eq("quote_request_id", quoteId);
     if ((existingItems.data ?? []).length) {
-      await context.service.from("quote_items").insert((existingItems.data ?? []).map((item) => ({ quote_request_id: quoteId, ...item })));
+      await context.service.from("quote_items").insert((existingItems.data ?? []).map((item: Row) => ({ quote_request_id: quoteId, ...item })));
     }
     throw new PortalError(updated.error.message, 400);
   }
