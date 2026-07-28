@@ -1,0 +1,15 @@
+Saarly Web V4 — Landing Refinement QA
+======================================
+Package version: 1.0.3
+
+Completed checks:
+- Node regression suite: 47 passed, 0 failed.
+- TS/TSX syntax parse: 85 files, 0 syntax errors.
+- CSS brace validation: passed.
+- Old Arabic phrases requested for removal: not present.
+- ZIP integrity: run after packaging.
+
+Environment limitation:
+A complete Next.js typecheck/build could not be completed in this environment because
+the internal npm package gateway returned HTTP 503 while downloading dependencies.
+This is not recorded as a successful production build.
