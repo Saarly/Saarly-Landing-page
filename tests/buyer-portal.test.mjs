@@ -174,3 +174,15 @@ test("buyer offer loader keeps the Row contract for TypeScript production builds
   assert.match(source, /async function loadOffers\(context: BuyerContext, limit = 120\): Promise<Row\[]>/);
   assert.match(source, /return offerRows\.map\(\(offer\): Row =>/);
 });
+
+
+test("buyer and merchant preference state keeps strict Locale and ThemeMode types", () => {
+  const buyerSettings = read("src/components/buyer/sections/settings-section.tsx");
+  const merchantSettings = read("src/components/merchant/sections/settings-section.tsx");
+  const preferences = read("src/components/site-preferences.tsx");
+  assert.match(preferences, /export type ThemeMode = "light" \| "dark" \| "system"/);
+  assert.match(buyerSettings, /useState<Locale>\(/);
+  assert.match(buyerSettings, /useState<ThemeMode>\(/);
+  assert.match(merchantSettings, /useState<Locale>\(/);
+  assert.match(merchantSettings, /useState<ThemeMode>\(/);
+});
