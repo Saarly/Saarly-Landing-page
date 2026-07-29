@@ -63,7 +63,7 @@ export function MerchantLoginForm() {
       await supabase.auth.signOut({ scope: "local" });
       const { error } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
-        options: { shouldCreateUser: false },
+        options: { shouldCreateUser: false, data: { preferred_language: locale } },
       });
       if (error) throw error;
       setStep("code");
@@ -99,6 +99,7 @@ export function MerchantLoginForm() {
         type: "email",
       });
       if (error || !data.session) throw error ?? new Error("invalid_session");
+      await supabase.auth.updateUser({ data: { preferred_language: locale } });
 
       const response = await fetch("/api/merchant/portal?section=overview", {
         headers: { Authorization: `Bearer ${data.session.access_token}` },

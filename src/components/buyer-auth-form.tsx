@@ -44,7 +44,7 @@ export function BuyerAuthForm() {
     setSaving(true); setError(""); setMessage(""); setMerchantRememberSession(remember);
     try {
       await supabase.auth.signOut({ scope: "local" });
-      const result = await supabase.auth.signInWithOtp({ email: normalized, options: { shouldCreateUser: mode === "signup" } });
+      const result = await supabase.auth.signInWithOtp({ email: normalized, options: { shouldCreateUser: mode === "signup", data: { preferred_language: locale } } });
       if (result.error) throw result.error;
       setStep("code"); setOtp(""); setResendIn(45);
       setMessage(locale === "ar" ? "أرسلنا رمز دخول من 6 أرقام إلى بريدك." : "We sent a 6-digit code to your email.");
@@ -62,6 +62,7 @@ export function BuyerAuthForm() {
     try {
       const result = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token, type: "email" });
       if (result.error || !result.data.session) throw result.error ?? new Error("invalid_session");
+      await supabase.auth.updateUser({ data: { preferred_language: locale } });
       const check = await fetch("/api/buyer/portal?section=home", { headers: { Authorization: `Bearer ${result.data.session.access_token}` } });
       const payload = await check.json();
       if (check.ok) { window.location.assign("/buyer"); return; }

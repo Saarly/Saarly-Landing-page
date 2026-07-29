@@ -117,7 +117,7 @@ export function MerchantRegistrationForm() {
     try {
       await supabase.auth.signOut({ scope: "local" });
       setMerchantRememberSession(true);
-      const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
+      const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true, data: { preferred_language: locale } } });
       if (error) throw error;
       setAuthStep("code");
       show(locale === "ar" ? "أرسلنا رمز مكوّن من 6 أرقام إلى بريدك." : "We sent a 6-digit code to your email.", "success");
@@ -132,6 +132,7 @@ export function MerchantRegistrationForm() {
     try {
       const { data: result, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: otp, type: "email" });
       if (error || !result.session) throw error ?? new Error("invalid_session");
+      await supabase.auth.updateUser({ data: { preferred_language: locale } });
       await load();
     } catch { show(locale === "ar" ? "الرمز غير صحيح أو انتهت صلاحيته." : "The code is invalid or expired.", "error"); setBusy(false); }
   }

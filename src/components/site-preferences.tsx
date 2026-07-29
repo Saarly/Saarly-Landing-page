@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Locale } from "@/lib/site-content";
+import { supabase } from "@/lib/supabase";
 
 export type ThemeMode = "light" | "dark" | "system";
 type Preferences = {
@@ -46,6 +47,14 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("saarly-locale", next);
     setLocaleState(next);
     apply(next, theme);
+    if (supabase) {
+      void supabase.auth.getSession().then(async ({ data }) => {
+        if (!data.session) return;
+        await supabase.auth.updateUser({
+          data: { preferred_language: next },
+        });
+      }).catch(() => undefined);
+    }
   }
 
   function setTheme(next: ThemeMode) {
