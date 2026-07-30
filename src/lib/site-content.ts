@@ -13,7 +13,7 @@ export const siteConfig = {
   social: {
     facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || "",
     instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL || "",
-    linkedin: process.env.NEXT_PUBLIC_LINKEDIN_URL || "",
+    tiktok: process.env.NEXT_PUBLIC_TIKTOK_URL || "",
   },
 } as const;
 

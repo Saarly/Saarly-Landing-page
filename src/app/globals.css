@@ -1393,3 +1393,79 @@ html[data-theme="light"] .button.light-primary { color: var(--green-deep); }
   html[data-theme="system"] .button.primary,
   html[data-theme="system"] .button.light-primary { color: var(--green-deep); }
 }
+
+
+/* --------------------------------------------------------------------------
+   Saarly landing polish V6: hero spacing, mobile overflow control, OG ready
+   -------------------------------------------------------------------------- */
+.hero-copy { position: relative; z-index: 2; }
+.hero-visual {
+  isolation: isolate;
+  margin-inline: auto;
+  max-width: 560px;
+  overflow: hidden;
+  padding-inline: clamp(18px, 2.4vw, 36px);
+  width: 100%;
+}
+.phone-frame { width: min(334px, 100% - 84px); }
+.floating-one { inset-inline-start: 6%; top: 12%; }
+.floating-two { bottom: 17%; inset-inline-end: 4%; }
+.floating-three { bottom: 6%; inset-inline-start: 9%; }
+
+@media (min-width: 1081px) {
+  .hero-grid { gap: clamp(72px, 8vw, 126px); grid-template-columns: minmax(0, 1.02fr) minmax(420px, .82fr); }
+  .hero-copy { max-width: 720px; }
+  .hero-visual { margin-inline-start: 18px; }
+}
+
+@media (max-width: 1080px) {
+  .hero-grid { overflow: hidden; }
+  .hero-visual {
+    max-width: min(560px, 100%);
+    min-height: 580px;
+    padding-inline: 18px;
+  }
+  .floating-one { inset-inline-start: 10%; top: 9%; }
+  .floating-two { bottom: 14%; inset-inline-end: 8%; }
+  .floating-three { bottom: 6%; inset-inline-start: 14%; }
+}
+
+@media (max-width: 640px) {
+  .hero-grid { overflow: hidden; padding-block: 52px 40px; }
+  .hero-copy { max-width: 100%; }
+  .hero-copy h1 { line-height: 1.14; }
+  .hero-visual {
+    max-width: 100%;
+    min-height: 430px;
+    padding-inline: 8px;
+  }
+  .visual-glow { height: 330px; width: 330px; }
+  .orbit-one { height: 338px; width: 338px; }
+  .orbit-two { height: 270px; width: 270px; }
+  .phone-frame {
+    border-radius: 30px;
+    border-width: 6px;
+    transform: rotate(.8deg);
+    width: min(272px, calc(100vw - 112px));
+  }
+  .phone-top { padding: 14px 14px 10px; }
+  .phone-content { gap: 10px; min-height: 388px; padding: 12px 13px 17px; }
+  .mock-title { font-size: 1.02rem; }
+  .mock-row { gap: 9px; padding: 10px; }
+  .mock-row strong { font-size: .79rem; }
+  .mock-row small { font-size: .69rem; }
+  .mock-icon { height: 34px; width: 34px; }
+  .mock-button { padding: 12px; }
+  .floating-card {
+    border-radius: 14px;
+    gap: 8px;
+    max-width: 154px;
+    padding: 8px 9px;
+  }
+  .floating-card strong { font-size: .76rem; }
+  .floating-card small { font-size: .64rem; }
+  .floating-icon { border-radius: 9px; height: 34px; width: 34px; }
+  .floating-one { inset-inline-start: 7%; top: 7%; }
+  .floating-two { bottom: 13%; inset-inline-end: 7%; }
+  .floating-three { display: none; }
+}

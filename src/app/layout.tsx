@@ -6,13 +6,40 @@ import "./globals.css";
 
 const title = "سعرلي | صوّر، قارن، وفّر";
 const description = "أرسل قائمة احتياجاتك، راجع البنود، وقارن عروض الأسعار من متاجر مناسبة. بوابة متاجر عملية لإدارة المنتجات وطلبات التسعير والاشتراك.";
+const ogImage = "/og-image.png";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.siteUrl),
   title: { default: title, template: "%s | سعرلي" },
   description,
   applicationName: "سعرلي",
-  alternates: { canonical: "/" },
+  referrer: "origin-when-cross-origin",
+  keywords: [
+    "سعرلي",
+    "تطبيق سعرلي",
+    "مقارنة الأسعار",
+    "عروض أسعار",
+    "طلبات تسعير",
+    "أسعار المتاجر",
+    "بوابة المتاجر",
+    "quote requests",
+    "price comparison",
+    "store offers",
+    "merchant portal",
+    "Saarly",
+  ],
+  authors: [{ name: "Saarly" }],
+  creator: "Saarly",
+  publisher: "Saarly",
+  category: "shopping",
+  formatDetection: { email: false, address: false, telephone: false },
+  alternates: {
+    canonical: "/",
+    languages: {
+      "ar-EG": "/",
+      "en-US": "/",
+    },
+  },
   openGraph: {
     type: "website",
     locale: "ar_EG",
@@ -21,13 +48,38 @@ export const metadata: Metadata = {
     title,
     description,
     url: "/",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "سعرلي - صوّر، قارن، وفّر" }],
+    images: [{ url: ogImage, width: 1200, height: 630, alt: "شعار سعرلي" }],
   },
-  twitter: { card: "summary_large_image", title, description, images: ["/og-image.png"] },
-  icons: { icon: "/icon.png", apple: "/icon.png" },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+    images: [ogImage],
+  },
+  icons: {
+    icon: [
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/icon.png", sizes: "512x512", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "سعرلي",
+  },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, colorScheme: "light dark", themeColor: "#85BB64" };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#85BB64" },
+    { media: "(prefers-color-scheme: dark)", color: "#85BB64" },
+  ],
+};
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
