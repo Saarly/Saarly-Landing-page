@@ -1396,60 +1396,150 @@ html[data-theme="light"] .button.light-primary { color: var(--green-deep); }
 
 
 /* --------------------------------------------------------------------------
-   Saarly landing polish V6: hero spacing, mobile overflow control, OG ready
+   Saarly landing polish V6.2: hero spacing, card distribution, motion, mobile
    -------------------------------------------------------------------------- */
 .hero-copy { position: relative; z-index: 2; }
+.hero-eyebrow {
+  color: var(--green-soft);
+  text-shadow: 0 0 18px rgba(133, 187, 100, .12);
+}
 .hero-visual {
   isolation: isolate;
   margin-inline: auto;
-  max-width: 560px;
+  max-width: 540px;
+  min-height: 620px;
   overflow: hidden;
-  padding-inline: clamp(18px, 2.4vw, 36px);
+  padding: 34px 22px 38px;
   width: 100%;
 }
-.phone-frame { width: min(334px, 100% - 84px); }
-.floating-one { inset-inline-start: 6%; top: 12%; }
-.floating-two { bottom: 17%; inset-inline-end: 4%; }
-.floating-three { bottom: 6%; inset-inline-start: 9%; }
+.phone-frame {
+  --phone-rotate: 1.2deg;
+  --phone-float-distance: 10px;
+  transform: rotate(var(--phone-rotate));
+  width: min(324px, 100% - 98px);
+  will-change: transform;
+  animation: saarly-phone-float 6.8s ease-in-out infinite;
+}
+.floating-card {
+  backdrop-filter: none;
+  background: linear-gradient(135deg, rgba(24, 32, 27, .96), rgba(20, 27, 23, .9));
+  border-color: rgba(215, 235, 208, .08);
+  box-shadow: 0 18px 40px rgba(5, 10, 7, .24);
+  color: #f4f8f1;
+  max-width: 194px;
+  will-change: transform;
+}
+.floating-card strong { color: #f4f8f1; }
+.floating-card small { color: rgba(234, 241, 231, .78); }
+.floating-icon {
+  background: rgba(133, 187, 100, .16);
+  border: 1px solid rgba(133, 187, 100, .18);
+  color: var(--green-soft);
+}
+.floating-one {
+  inset-inline-start: 15%;
+  top: 8%;
+  animation: saarly-card-float-a 5.6s ease-in-out infinite;
+}
+.floating-two {
+  bottom: 13%;
+  inset-inline-end: 8%;
+  animation: saarly-card-float-b 6.2s ease-in-out infinite;
+}
+.floating-three {
+  bottom: 6%;
+  inset-inline-start: 9%;
+  animation: saarly-card-float-c 6.6s ease-in-out infinite;
+}
+
+@keyframes saarly-phone-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--phone-rotate)); }
+  50% { transform: translate3d(0, calc(-1 * var(--phone-float-distance)), 0) rotate(var(--phone-rotate)); }
+}
+@keyframes saarly-card-float-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -8px, 0); }
+}
+@keyframes saarly-card-float-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -6px, 0); }
+}
+@keyframes saarly-card-float-c {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -7px, 0); }
+}
 
 @media (min-width: 1081px) {
-  .hero-grid { gap: clamp(72px, 8vw, 126px); grid-template-columns: minmax(0, 1.02fr) minmax(420px, .82fr); }
-  .hero-copy { max-width: 720px; }
-  .hero-visual { margin-inline-start: 18px; }
+  .hero-grid {
+    gap: clamp(110px, 10vw, 170px);
+    grid-template-columns: minmax(0, 1fr) minmax(420px, .74fr);
+  }
+  .hero-copy { max-width: 700px; }
+  .hero-visual {
+    margin-inline-start: 30px;
+    max-width: 500px;
+  }
 }
 
 @media (max-width: 1080px) {
-  .hero-grid { overflow: hidden; }
-  .hero-visual {
-    max-width: min(560px, 100%);
-    min-height: 580px;
-    padding-inline: 18px;
+  .hero-grid {
+    overflow: hidden;
+    gap: 42px;
   }
-  .floating-one { inset-inline-start: 10%; top: 9%; }
-  .floating-two { bottom: 14%; inset-inline-end: 8%; }
-  .floating-three { bottom: 6%; inset-inline-start: 14%; }
+  .hero-visual {
+    margin-top: 8px;
+    max-width: min(540px, 100%);
+    min-height: 590px;
+    padding: 30px 18px 36px;
+  }
+  .phone-frame { width: min(318px, 100% - 88px); }
+  .floating-one {
+    inset-inline-start: 13%;
+    top: 9%;
+  }
+  .floating-two {
+    bottom: 13%;
+    inset-inline-end: 8%;
+  }
+  .floating-three {
+    bottom: 5%;
+    inset-inline-start: 11%;
+  }
 }
 
 @media (max-width: 640px) {
-  .hero-grid { overflow: hidden; padding-block: 52px 40px; }
+  .hero-grid {
+    overflow: hidden;
+    padding-block: 52px 40px;
+  }
   .hero-copy { max-width: 100%; }
   .hero-copy h1 { line-height: 1.14; }
+  .hero-eyebrow {
+    color: var(--green);
+    text-shadow: none;
+  }
   .hero-visual {
+    margin-top: 24px;
     max-width: 100%;
-    min-height: 430px;
-    padding-inline: 8px;
+    min-height: 520px;
+    padding: 46px 8px 32px;
   }
   .visual-glow { height: 330px; width: 330px; }
   .orbit-one { height: 338px; width: 338px; }
   .orbit-two { height: 270px; width: 270px; }
   .phone-frame {
+    --phone-rotate: .8deg;
+    --phone-float-distance: 8px;
     border-radius: 30px;
     border-width: 6px;
-    transform: rotate(.8deg);
     width: min(272px, calc(100vw - 112px));
   }
   .phone-top { padding: 14px 14px 10px; }
-  .phone-content { gap: 10px; min-height: 388px; padding: 12px 13px 17px; }
+  .phone-content {
+    gap: 10px;
+    min-height: 388px;
+    padding: 12px 13px 17px;
+  }
   .mock-title { font-size: 1.02rem; }
   .mock-row { gap: 9px; padding: 10px; }
   .mock-row strong { font-size: .79rem; }
@@ -1464,8 +1554,19 @@ html[data-theme="light"] .button.light-primary { color: var(--green-deep); }
   }
   .floating-card strong { font-size: .76rem; }
   .floating-card small { font-size: .64rem; }
-  .floating-icon { border-radius: 9px; height: 34px; width: 34px; }
-  .floating-one { inset-inline-start: 7%; top: 7%; }
-  .floating-two { bottom: 13%; inset-inline-end: 7%; }
+  .floating-icon {
+    border-radius: 9px;
+    height: 34px;
+    width: 34px;
+  }
+  .floating-one {
+    inset-inline-start: 15%;
+    top: 12%;
+  }
+  .floating-two {
+    bottom: 14%;
+    inset-inline-end: 5%;
+  }
   .floating-three { display: none; }
 }
+
