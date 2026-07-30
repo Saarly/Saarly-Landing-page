@@ -47,10 +47,11 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("saarly-locale", next);
     setLocaleState(next);
     apply(next, theme);
-    if (supabase) {
-      void supabase.auth.getSession().then(async ({ data }) => {
+    const client = supabase;
+    if (client) {
+      void client.auth.getSession().then(async ({ data }) => {
         if (!data.session) return;
-        await supabase.auth.updateUser({
+        await client.auth.updateUser({
           data: { preferred_language: next },
         });
       }).catch(() => undefined);
