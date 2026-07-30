@@ -197,18 +197,6 @@ function IllustrativePhone({ locale }: { locale: Locale }) {
             <div className="mock-button">{locale === "ar" ? "أرسل الطلب" : "Send request"}<Icon name="arrow" size={17} /></div>
           </div>
         </div>
-        <div className="floating-card floating-one">
-          <span className="floating-icon"><Icon name="store" /></span>
-          <span><strong>{locale === "ar" ? "متاجر مناسبة" : "Relevant stores"}</strong><small>{locale === "ar" ? "حسب القسم والموقع" : "By category and location"}</small></span>
-        </div>
-        <div className="floating-card floating-two">
-          <span className="floating-icon"><Icon name="compare" /></span>
-          <span><strong>{locale === "ar" ? "مقارنة واضحة" : "Clear comparison"}</strong><small>{locale === "ar" ? "السعر والتوفر والتفاصيل" : "Price, stock, and details"}</small></span>
-        </div>
-        <div className="floating-card floating-three">
-          <span className="floating-icon"><Icon name="bell" /></span>
-          <span><strong>{locale === "ar" ? "تحديثات فورية" : "Timely updates"}</strong><small>{locale === "ar" ? "تابع حالة الطلب" : "Track request status"}</small></span>
-        </div>
       </div>
     </div>
   );

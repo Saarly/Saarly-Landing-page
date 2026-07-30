@@ -1597,3 +1597,32 @@ html[data-theme="light"] .button.light-primary { color: var(--green-deep); }
   .floating-three { display: none; }
 }
 
+
+
+/* --------------------------------------------------------------------------
+   Saarly landing V6.4: remove hero cards and set final desktop/mobile spacing
+   -------------------------------------------------------------------------- */
+.hero-visual .floating-card { display: none !important; }
+
+@media (min-width: 1081px) {
+  .hero-grid {
+    column-gap: clamp(170px, 12vw, 225px);
+    grid-template-columns: minmax(0, 1fr) minmax(430px, 500px);
+  }
+  .hero-copy { max-width: 640px; }
+  .hero-visual,
+  .phone-stage { max-width: 500px; }
+}
+
+@media (max-width: 640px) {
+  .hero-grid { gap: 18px; }
+  .hero-visual {
+    margin-top: 0;
+    min-height: 550px;
+  }
+  .phone-stage {
+    height: 550px;
+    max-width: 360px;
+  }
+  .phone-frame { top: 14px; }
+}
