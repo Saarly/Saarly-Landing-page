@@ -1396,143 +1396,164 @@ html[data-theme="light"] .button.light-primary { color: var(--green-deep); }
 
 
 /* --------------------------------------------------------------------------
-   Saarly landing polish V6.2: hero spacing, card distribution, motion, mobile
+   Saarly landing polish V6.3: measured hero stage, zero phone shadow, no text overlap
    -------------------------------------------------------------------------- */
 .hero-copy { position: relative; z-index: 2; }
-.hero-eyebrow {
-  color: var(--green-soft);
-  text-shadow: 0 0 18px rgba(133, 187, 100, .12);
+.hero-eyebrow,
+.hero-eyebrow svg {
+  color: #b8e98f !important;
+  opacity: 1;
 }
 .hero-visual {
-  isolation: isolate;
+  align-items: center;
+  display: flex;
+  justify-content: center;
   margin-inline: auto;
-  max-width: 540px;
-  min-height: 620px;
+  max-width: 560px;
+  min-height: 700px;
   overflow: hidden;
-  padding: 34px 22px 38px;
+  padding: 0;
   width: 100%;
 }
-.phone-frame {
-  --phone-rotate: 1.2deg;
-  --phone-float-distance: 10px;
-  transform: rotate(var(--phone-rotate));
-  width: min(324px, 100% - 98px);
+.phone-stage {
+  animation: saarly-stage-float 6.8s ease-in-out infinite;
+  height: 680px;
+  max-width: 560px;
+  position: relative;
+  width: 100%;
   will-change: transform;
-  animation: saarly-phone-float 6.8s ease-in-out infinite;
+}
+.visual-glow { display: none !important; }
+.visual-orbit {
+  left: 50%;
+  pointer-events: none;
+  top: 51%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+.phone-frame {
+  animation: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  left: 50%;
+  position: absolute;
+  top: 76px;
+  transform: translateX(-50%) rotate(1deg) !important;
+  width: 320px;
+  z-index: 2;
 }
 .floating-card {
-  backdrop-filter: none;
-  background: linear-gradient(135deg, rgba(24, 32, 27, .96), rgba(20, 27, 23, .9));
-  border-color: rgba(215, 235, 208, .08);
-  box-shadow: 0 18px 40px rgba(5, 10, 7, .24);
-  color: #f4f8f1;
-  max-width: 194px;
-  will-change: transform;
+  backdrop-filter: none !important;
+  background: rgba(21, 29, 24, .97);
+  border: 1px solid rgba(184, 233, 143, .14);
+  box-shadow: none !important;
+  color: #f5f8f3;
+  max-width: 180px;
+  position: absolute;
+  z-index: 4;
 }
-.floating-card strong { color: #f4f8f1; }
-.floating-card small { color: rgba(234, 241, 231, .78); }
+.floating-card strong { color: #f5f8f3; }
+.floating-card small { color: rgba(238, 244, 235, .76); }
 .floating-icon {
   background: rgba(133, 187, 100, .16);
-  border: 1px solid rgba(133, 187, 100, .18);
-  color: var(--green-soft);
+  border: 1px solid rgba(184, 233, 143, .18);
+  color: #b8e98f;
 }
+/* Card 1 touches only the upper-right bezel; it does not cover the phone title. */
 .floating-one {
-  inset-inline-start: 15%;
-  top: 8%;
-  animation: saarly-card-float-a 5.6s ease-in-out infinite;
+  animation: saarly-card-breathe-a 5.8s ease-in-out infinite;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
+  top: 12px;
 }
+/* Card 2 overlaps only the far-left icon/chevron gutter, not product text. */
 .floating-two {
-  bottom: 13%;
-  inset-inline-end: 8%;
-  animation: saarly-card-float-b 6.2s ease-in-out infinite;
+  animation: saarly-card-breathe-b 6.2s ease-in-out infinite;
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+  max-width: 160px;
+  top: 350px;
 }
+/* Card 3 touches the lower-right bezel and stays away from the button label. */
 .floating-three {
-  bottom: 6%;
-  inset-inline-start: 9%;
-  animation: saarly-card-float-c 6.6s ease-in-out infinite;
+  animation: saarly-card-breathe-c 6.5s ease-in-out infinite;
+  bottom: 0;
+  max-width: 170px;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
 }
 
-@keyframes saarly-phone-float {
-  0%, 100% { transform: translate3d(0, 0, 0) rotate(var(--phone-rotate)); }
-  50% { transform: translate3d(0, calc(-1 * var(--phone-float-distance)), 0) rotate(var(--phone-rotate)); }
-}
-@keyframes saarly-card-float-a {
+@keyframes saarly-stage-float {
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(0, -8px, 0); }
 }
-@keyframes saarly-card-float-b {
+@keyframes saarly-card-breathe-a {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -6px, 0); }
+  50% { transform: translate3d(0, -3px, 0); }
 }
-@keyframes saarly-card-float-c {
+@keyframes saarly-card-breathe-b {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -7px, 0); }
+  50% { transform: translate3d(0, 3px, 0); }
+}
+@keyframes saarly-card-breathe-c {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -2px, 0); }
 }
 
 @media (min-width: 1081px) {
   .hero-grid {
-    gap: clamp(110px, 10vw, 170px);
-    grid-template-columns: minmax(0, 1fr) minmax(420px, .74fr);
+    column-gap: clamp(130px, 10vw, 175px);
+    grid-template-columns: minmax(0, 1fr) minmax(500px, 560px);
   }
-  .hero-copy { max-width: 700px; }
-  .hero-visual {
-    margin-inline-start: 30px;
-    max-width: 500px;
-  }
+  .hero-copy { max-width: 650px; }
+  .hero-visual { max-width: 560px; }
+  .phone-stage { max-width: 560px; }
 }
 
 @media (max-width: 1080px) {
   .hero-grid {
+    gap: 64px;
     overflow: hidden;
-    gap: 42px;
   }
   .hero-visual {
-    margin-top: 8px;
-    max-width: min(540px, 100%);
-    min-height: 590px;
-    padding: 30px 18px 36px;
-  }
-  .phone-frame { width: min(318px, 100% - 88px); }
-  .floating-one {
-    inset-inline-start: 13%;
-    top: 9%;
-  }
-  .floating-two {
-    bottom: 13%;
-    inset-inline-end: 8%;
-  }
-  .floating-three {
-    bottom: 5%;
-    inset-inline-start: 11%;
+    max-width: min(560px, 100%);
+    min-height: 680px;
   }
 }
 
 @media (max-width: 640px) {
   .hero-grid {
+    gap: 52px;
     overflow: hidden;
     padding-block: 52px 40px;
   }
   .hero-copy { max-width: 100%; }
   .hero-copy h1 { line-height: 1.14; }
-  .hero-eyebrow {
-    color: var(--green);
-    text-shadow: none;
+  .hero-eyebrow,
+  .hero-eyebrow svg {
+    color: #b8e98f !important;
+    opacity: 1;
   }
   .hero-visual {
-    margin-top: 24px;
+    margin-top: 0;
     max-width: 100%;
-    min-height: 520px;
-    padding: 46px 8px 32px;
+    min-height: 700px;
   }
-  .visual-glow { height: 330px; width: 330px; }
+  .phone-stage {
+    height: 680px;
+    max-width: 360px;
+    width: 100%;
+  }
+  .visual-orbit { top: 53%; }
+  .visual-glow { display: none !important; }
   .orbit-one { height: 338px; width: 338px; }
   .orbit-two { height: 270px; width: 270px; }
   .phone-frame {
-    --phone-rotate: .8deg;
-    --phone-float-distance: 8px;
     border-radius: 30px;
     border-width: 6px;
-    width: min(272px, calc(100vw - 112px));
+    top: 88px;
+    transform: translateX(-50%) rotate(.7deg) !important;
+    width: min(278px, calc(100vw - 104px));
   }
   .phone-top { padding: 14px 14px 10px; }
   .phone-content {
@@ -1559,13 +1580,19 @@ html[data-theme="light"] .button.light-primary { color: var(--green-deep); }
     height: 34px;
     width: 34px;
   }
+  /* The upper card is fully above the phone, so it cannot cover header text. */
   .floating-one {
-    inset-inline-start: 15%;
-    top: 12%;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
+    top: 12px;
   }
+  /* The lower card is fully below the phone, so it cannot cover totals or button text. */
   .floating-two {
-    bottom: 14%;
-    inset-inline-end: 5%;
+    bottom: 0;
+    inset-inline-start: 0;
+    inset-inline-end: auto;
+    max-width: 154px;
+    top: auto;
   }
   .floating-three { display: none; }
 }

@@ -166,48 +166,49 @@ function IllustrativePhone({ locale }: { locale: Locale }) {
 
   return (
     <div className="hero-visual" aria-label={locale === "ar" ? "تصور توضيحي لمسار مقارنة الأسعار" : "Illustrative price-comparison flow"}>
-      <div className="visual-glow" />
-      <div className="visual-orbit orbit-one" />
-      <div className="visual-orbit orbit-two" />
-      <div className="phone-frame">
-        <div className="phone-top">
-          <span className="phone-speaker" />
-          <strong>{locale === "ar" ? "طلب تسعير" : "Quote request"}</strong>
-          <span className="phone-bell"><Icon name="bell" size={17} /></span>
-        </div>
-        <div className="phone-content">
-          <div className="mock-progress"><span className="active" /><span className="active" /><span /><span /></div>
-          <div className="mock-heading">
-            <small>{locale === "ar" ? "الخطوة 2 من 4" : "Step 2 of 4"}</small>
-            <div className="mock-title">{locale === "ar" ? "راجع البنود قبل الإرسال" : "Review items before sending"}</div>
+      <div className="phone-stage">
+        <div className="visual-orbit orbit-one" />
+        <div className="visual-orbit orbit-two" />
+        <div className="phone-frame">
+          <div className="phone-top">
+            <span className="phone-speaker" />
+            <strong>{locale === "ar" ? "طلب تسعير" : "Quote request"}</strong>
+            <span className="phone-bell"><Icon name="bell" size={17} /></span>
           </div>
-          <div className="mock-list">
-            {products.map((name, index) => (
-              <div className="mock-row" key={name}>
-                <span className="mock-icon"><Icon name={index === 2 ? "box" : "check"} size={17} /></span>
-                <div>
-                  <strong>{name}</strong>
-                  <small>{locale === "ar" ? `${index + 1} × قطعة` : `${index + 1} × item`}</small>
+          <div className="phone-content">
+            <div className="mock-progress"><span className="active" /><span className="active" /><span /><span /></div>
+            <div className="mock-heading">
+              <small>{locale === "ar" ? "الخطوة 2 من 4" : "Step 2 of 4"}</small>
+              <div className="mock-title">{locale === "ar" ? "راجع البنود قبل الإرسال" : "Review items before sending"}</div>
+            </div>
+            <div className="mock-list">
+              {products.map((name, index) => (
+                <div className="mock-row" key={name}>
+                  <span className="mock-icon"><Icon name={index === 2 ? "box" : "check"} size={17} /></span>
+                  <div>
+                    <strong>{name}</strong>
+                    <small>{locale === "ar" ? `${index + 1} × قطعة` : `${index + 1} × item`}</small>
+                  </div>
+                  <Icon name="chevron" size={16} />
                 </div>
-                <Icon name="chevron" size={16} />
-              </div>
-            ))}
+              ))}
+            </div>
+            <div className="mock-total"><span>{locale === "ar" ? "إجمالي البنود" : "Total items"}</span><strong>3</strong></div>
+            <div className="mock-button">{locale === "ar" ? "أرسل الطلب" : "Send request"}<Icon name="arrow" size={17} /></div>
           </div>
-          <div className="mock-total"><span>{locale === "ar" ? "إجمالي البنود" : "Total items"}</span><strong>3</strong></div>
-          <div className="mock-button">{locale === "ar" ? "أرسل الطلب" : "Send request"}<Icon name="arrow" size={17} /></div>
         </div>
-      </div>
-      <div className="floating-card floating-one">
-        <span className="floating-icon"><Icon name="store" /></span>
-        <span><strong>{locale === "ar" ? "متاجر مناسبة" : "Relevant stores"}</strong><small>{locale === "ar" ? "حسب القسم والموقع" : "By category and location"}</small></span>
-      </div>
-      <div className="floating-card floating-two">
-        <span className="floating-icon"><Icon name="compare" /></span>
-        <span><strong>{locale === "ar" ? "مقارنة واضحة" : "Clear comparison"}</strong><small>{locale === "ar" ? "السعر والتوفر والتفاصيل" : "Price, stock, and details"}</small></span>
-      </div>
-      <div className="floating-card floating-three">
-        <span className="floating-icon"><Icon name="bell" /></span>
-        <span><strong>{locale === "ar" ? "تحديثات فورية" : "Timely updates"}</strong><small>{locale === "ar" ? "تابع حالة الطلب" : "Track request status"}</small></span>
+        <div className="floating-card floating-one">
+          <span className="floating-icon"><Icon name="store" /></span>
+          <span><strong>{locale === "ar" ? "متاجر مناسبة" : "Relevant stores"}</strong><small>{locale === "ar" ? "حسب القسم والموقع" : "By category and location"}</small></span>
+        </div>
+        <div className="floating-card floating-two">
+          <span className="floating-icon"><Icon name="compare" /></span>
+          <span><strong>{locale === "ar" ? "مقارنة واضحة" : "Clear comparison"}</strong><small>{locale === "ar" ? "السعر والتوفر والتفاصيل" : "Price, stock, and details"}</small></span>
+        </div>
+        <div className="floating-card floating-three">
+          <span className="floating-icon"><Icon name="bell" /></span>
+          <span><strong>{locale === "ar" ? "تحديثات فورية" : "Timely updates"}</strong><small>{locale === "ar" ? "تابع حالة الطلب" : "Track request status"}</small></span>
+        </div>
       </div>
     </div>
   );
