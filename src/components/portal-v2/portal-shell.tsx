@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
+import { usePortalModalBehavior, usePortalResponsiveTableLabels } from "@/components/portal-v2/portal-dialogs";
 
 export type PortalIconName = Parameters<typeof Icon>[0]["name"];
 export type PortalNavItem = {
@@ -58,6 +59,8 @@ export function PortalAppShell({
   sidebarFooter,
   children,
 }: Props) {
+  usePortalModalBehavior(locale);
+  usePortalResponsiveTableLabels();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const dir = locale === "ar" ? "rtl" : "ltr";
@@ -141,7 +144,7 @@ export function PortalAppShell({
       {mobileMoreOpen ? (
         <div className="portal-v2-sheet-layer" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setMobileMoreOpen(false); }}>
           <section className="portal-v2-sheet" role="dialog" aria-modal="true" aria-label={locale === "ar" ? "المزيد من الصفحات" : "More pages"}>
-            <header><div><span className="portal-v2-sheet-handle"/><h2>{locale === "ar" ? "كل الأدوات" : "All tools"}</h2><p>{locale === "ar" ? "نفس أدوات الحساب مرتبة للوصول السريع من الموبايل." : "All account tools, organized for quick mobile access."}</p></div><button className="portal-v2-icon-button" type="button" onClick={() => setMobileMoreOpen(false)}><Icon name="close" size={19}/></button></header>
+            <header><div><span className="portal-v2-sheet-handle"/><h2>{locale === "ar" ? "كل الأدوات" : "All tools"}</h2><p>{locale === "ar" ? "نفس أدوات الحساب مرتبة للوصول السريع من الموبايل." : "All account tools, organized for quick mobile access."}</p></div><button className="portal-v2-icon-button" data-modal-close type="button" onClick={() => setMobileMoreOpen(false)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close" size={19}/></button></header>
             <div className="portal-v2-sheet-grid">
               {allItems.map((item) => (
                 <Link href={item.href} className={item.key === activeKey ? "active" : ""} key={item.key}>
@@ -154,6 +157,26 @@ export function PortalAppShell({
           </section>
         </div>
       ) : null}
+    </main>
+  );
+}
+
+export function PortalBootstrapSkeleton({ kind, locale }: { kind: "buyer" | "merchant"; locale: "ar" | "en" }) {
+  const dir = locale === "ar" ? "rtl" : "ltr";
+  return (
+    <main className={`portal-v2 portal-v2-${kind} portal-bootstrap`} dir={dir} aria-busy="true" aria-label={locale === "ar" ? "جارٍ فتح البوابة" : "Opening portal"}>
+      <aside className="portal-v2-sidebar portal-bootstrap-sidebar">
+        <div className="portal-v2-brand-row"><Brand locale={locale} compact inverted/></div>
+        <div className="portal-bootstrap-identity skeleton-line"/>
+        <div className="portal-bootstrap-nav">{Array.from({ length: 9 }, (_, index) => <span className="skeleton-line" key={index}/>)}</div>
+      </aside>
+      <section className="portal-v2-main">
+        <header className="portal-v2-topbar"><div className="portal-bootstrap-topline skeleton-line"/></header>
+        <div className="portal-v2-content">
+          <header className="portal-v2-page-header"><div className="portal-bootstrap-title"><span className="skeleton-line"/><span className="skeleton-line"/></div></header>
+          <div className="portal-v2-page-body portal-section-skeleton"><span/><span/><span/></div>
+        </div>
+      </section>
     </main>
   );
 }

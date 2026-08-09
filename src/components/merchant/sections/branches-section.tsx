@@ -4,6 +4,8 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost, portalUpload } from "@/components/merchant/portal-client";
 import { EmptyState, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
+import { usePortalConfirm } from "@/components/portal-v2/portal-dialogs";
+import { CoordinateMapPicker } from "@/components/portal-v2/coordinate-map-picker";
 import { bool, money, numberValue, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
@@ -25,9 +27,12 @@ type BranchForm = {
   freeDeliveryMinimum: string;
   craftsmanAvailable: boolean;
   managerIdFrontPath: string;
+  managerIdFrontPreviewUrl: string;
   managerIdBackPath: string;
+  managerIdBackPreviewUrl: string;
   usesParentCommercialRegister: boolean;
   commercialRegisterPath: string;
+  commercialRegisterPreviewUrl: string;
 };
 
 const empty: BranchForm = {
@@ -35,18 +40,17 @@ const empty: BranchForm = {
   managerName: "", managerMobile: "", frontImageUrl: "", frontPreviewUrl: "",
   deliveryChoice: "inherit", deliveryPricingMethod: "flat", freeDeliveryEnabled: false, freeDeliveryMinimum: "",
   craftsmanAvailable: false,
-  managerIdFrontPath: "", managerIdBackPath: "", usesParentCommercialRegister: true,
-  commercialRegisterPath: "",
+  managerIdFrontPath: "", managerIdFrontPreviewUrl: "", managerIdBackPath: "", managerIdBackPreviewUrl: "", usesParentCommercialRegister: true,
+  commercialRegisterPath: "", commercialRegisterPreviewUrl: "",
 };
 
-function mapUrl(latitude: string, longitude: string) {
-  const lat = Number(latitude), lng = Number(longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
-  const delta = 0.008;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng-delta}%2C${lat-delta}%2C${lng+delta}%2C${lat+delta}&layer=mapnik&marker=${lat}%2C${lng}`;
+function normalizePlace(input: unknown) {
+  return String(input ?? "").trim().toLowerCase().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/\s+/g, " ");
 }
 
+
 export function BranchesSection({ payload, locale, refresh, notify }: SectionProps) {
+  const { confirm, confirmDialog } = usePortalConfirm(locale);
   const branches = rows(payload.data.branches);
   const cities = rows(payload.data.cities);
   const documents = rows(payload.data.documents);
@@ -87,7 +91,10 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
     if (!branch) setForm(empty);
     else {
       const branchDocs = docMap.get(text(branch.id)) ?? [];
-      const managerDoc = branchDocs.find((doc) => ["branch_manager_id_front", "branch_manager_id_back"].includes(text(doc.kind)));
+      const managerFrontDoc = branchDocs.find((doc) => text(doc.kind) === "branch_manager_id_front");
+      const managerBackDoc = branchDocs.find((doc) => text(doc.kind) === "branch_manager_id_back");
+      const commercialRegisterDoc = branchDocs.find((doc) => text(doc.kind) === "commercial_register");
+      const managerDoc = managerFrontDoc ?? managerBackDoc;
       const deliveryChoice: DeliveryChoice = branch.delivery_enabled === null || branch.delivery_enabled === undefined
         ? "inherit" : bool(branch.delivery_enabled) ? "enabled" : "disabled";
       setForm({
@@ -98,9 +105,11 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
         deliveryChoice, deliveryPricingMethod: text(branch.delivery_pricing_method, "flat"),
         freeDeliveryEnabled: bool(branch.free_delivery_enabled),
         freeDeliveryMinimum: branch.free_delivery_minimum == null ? "" : text(branch.free_delivery_minimum),
-        craftsmanAvailable: bool(branch.craftsman_available), managerIdFrontPath: "", managerIdBackPath: "",
+        craftsmanAvailable: bool(branch.craftsman_available),
+        managerIdFrontPath: text(managerFrontDoc?.storage_path), managerIdFrontPreviewUrl: text(managerFrontDoc?.preview_signed_url),
+        managerIdBackPath: text(managerBackDoc?.storage_path), managerIdBackPreviewUrl: text(managerBackDoc?.preview_signed_url),
         usesParentCommercialRegister: branch.uses_parent_commercial_register !== false,
-        commercialRegisterPath: "",
+        commercialRegisterPath: text(commercialRegisterDoc?.storage_path), commercialRegisterPreviewUrl: text(commercialRegisterDoc?.preview_signed_url),
       });
     }
     setOpen(true);
@@ -118,6 +127,28 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
     );
   }
 
+  function updateMapLocation(latitude: string, longitude: string, resolved?: { city?: string; governorate?: string; country?: string }) {
+    setForm((current) => {
+      let cityId = current.cityId;
+      if (resolved) {
+        const city = normalizePlace(resolved.city);
+        const governorate = normalizePlace(resolved.governorate);
+        const country = normalizePlace(resolved.country);
+        const matched = cities.find((item) => {
+          const cityNames = [item.name_ar, item.name_en].map(normalizePlace);
+          const govNames = [item.governorate_ar, item.governorate_en].map(normalizePlace);
+          const countryNames = [item.country_ar, item.country_en].map(normalizePlace);
+          const cityMatch = !city || cityNames.some((name) => name && (name === city || name.includes(city) || city.includes(name)));
+          const govMatch = !governorate || govNames.some((name) => name && (name === governorate || name.includes(governorate) || governorate.includes(name)));
+          const countryMatch = !country || countryNames.some((name) => name && (name === country || name.includes(country) || country.includes(name)));
+          return cityMatch && govMatch && countryMatch;
+        });
+        if (matched) cityId = text(matched.id);
+      }
+      return { ...current, latitude, longitude, cityId };
+    });
+  }
+
   async function upload(kind: Exclude<UploadKind, "">, file: File) {
     setUploading(kind);
     try {
@@ -126,9 +157,9 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
       setForm((current) => ({
         ...current,
         ...(kind === "front" ? { frontImageUrl: result.path, frontPreviewUrl: result.url || URL.createObjectURL(file) } : {}),
-        ...(kind === "managerFront" ? { managerIdFrontPath: result.path } : {}),
-        ...(kind === "managerBack" ? { managerIdBackPath: result.path } : {}),
-        ...(kind === "register" ? { commercialRegisterPath: result.path } : {}),
+        ...(kind === "managerFront" ? { managerIdFrontPath: result.path, managerIdFrontPreviewUrl: result.url || URL.createObjectURL(file) } : {}),
+        ...(kind === "managerBack" ? { managerIdBackPath: result.path, managerIdBackPreviewUrl: result.url || URL.createObjectURL(file) } : {}),
+        ...(kind === "register" ? { commercialRegisterPath: result.path, commercialRegisterPreviewUrl: result.url || URL.createObjectURL(file) } : {}),
       }));
       notify(locale === "ar" ? "تم رفع الملف بنجاح." : "File uploaded successfully.", "success");
     } catch (error) { notify(error instanceof Error ? error.message : "upload_failed", "error"); }
@@ -237,7 +268,7 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
     if (!isOwner) return;
     const branchId = text(branch.id);
     const branchName = text(branch.name, locale === "ar" ? "هذا الفرع" : "this branch");
-    if (!branchId || !window.confirm(locale === "ar" ? `حذف ${branchName}؟` : `Delete ${branchName}?`)) return;
+    if (!branchId || !(await confirm({ title: locale === "ar" ? `حذف ${branchName}` : `Delete ${branchName}`, body: locale === "ar" ? "سيتم حذف الفرع من المتجر. تأكد إنك مش محتاج بياناته قبل المتابعة." : "This branch will be removed from the store. Make sure you no longer need it before continuing.", confirmLabel: locale === "ar" ? "حذف الفرع" : "Delete branch", tone: "danger" }))) return;
     setSaving(true);
     try {
       await portalPost("delete_branch", { id: branchId });
@@ -266,6 +297,8 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
           <div className="detail-list compact"><div><span>{locale === "ar" ? "هاتف المدير" : "Manager phone"}</span><strong>{text(branch.manager_mobile, "—")}</strong></div><div><span>{locale === "ar" ? "التوصيل" : "Delivery"}</span><strong>{branch.delivery_enabled == null ? (locale === "ar" ? "يتبع إعداد المتجر" : "Uses store setting") : bool(branch.delivery_enabled) ? (locale === "ar" ? "مفعّل" : "Enabled") : (locale === "ar" ? "غير مفعّل" : "Disabled")}</strong></div><div><span>{locale === "ar" ? "منتجات غير متاحة" : "Unavailable products"}</span><strong>{unavailable === 0 ? (locale === "ar" ? "كل المنتجات متاحة" : "All products available") : unavailable}</strong></div><div><span>{locale === "ar" ? "إجمالي مبيعات الفرع" : "Branch sales"}</span><strong>{sales ? money(sales.total_sales, payload.account.currencyCode || "EGP", locale) : (locale === "ar" ? "لا توجد مبيعات بعد" : "No sales yet")}</strong></div><div><span>{locale === "ar" ? "الطلبات المؤكدة" : "Confirmed orders"}</span><strong>{numberValue(sales?.confirmed_orders_count)}</strong></div><div><span>{locale === "ar" ? "مستندات المدير" : "Manager documents"}</span><span className="document-statuses"><StatusBadge value={front?.status ?? "pending"} locale={locale}/><StatusBadge value={back?.status ?? "pending"} locale={locale}/></span></div><div><span>{locale === "ar" ? "السجل التجاري" : "Commercial register"}</span><strong>{branch.uses_parent_commercial_register !== false ? (locale === "ar" ? "سجل المتجر الرئيسي" : "Main store register") : (locale === "ar" ? "سجل مستقل" : "Separate register")}</strong></div></div>
           {bool(branch.free_delivery_enabled) ? <p className="muted-copy">{locale === "ar" ? `توصيل مجاني من ${money(branch.free_delivery_minimum, payload.account.currencyCode || "EGP", locale)}` : `Free delivery from ${money(branch.free_delivery_minimum, payload.account.currencyCode || "EGP", locale)}`}</p> : null}
           {text(branch.rejection_reason) ? <p className="inline-error">{text(branch.rejection_reason)}</p> : null}
+          {isOwner && branchDocs.some((doc) => text(doc.rejection_reason)) ? <p className="inline-error">{locale === "ar" ? `سبب رفض المستندات: ${text(branchDocs.find((doc) => text(doc.rejection_reason))?.rejection_reason)}` : `Document rejection reason: ${text(branchDocs.find((doc) => text(doc.rejection_reason))?.rejection_reason)}`}</p> : null}
+          {isOwner && branchDocs.some((doc) => text(doc.preview_signed_url)) ? <div className="branch-document-preview-actions">{branchDocs.filter((doc) => text(doc.preview_signed_url)).map((doc) => <a className="button text-button compact" key={text(doc.id)} href={text(doc.preview_signed_url)} target="_blank" rel="noreferrer"><Icon name="eye" size={16}/>{text(doc.kind) === "branch_manager_id_front" ? (locale === "ar" ? "معاينة وجه بطاقة المدير" : "Preview manager ID front") : text(doc.kind) === "branch_manager_id_back" ? (locale === "ar" ? "معاينة ظهر بطاقة المدير" : "Preview manager ID back") : text(doc.kind) === "commercial_register" ? (locale === "ar" ? "معاينة السجل التجاري" : "Preview commercial register") : (locale === "ar" ? "معاينة المستند" : "Preview document")}</a>)}</div> : null}
           <label className="switch-row"><input type="checkbox" checked={bool(branch.craftsman_available)} disabled={savingBranchService === `craftsman:${branchId}`} onChange={(event) => void setCraftsman(branch, event.target.checked)}/><span><strong>{locale === "ar" ? "صنايعي متاح في هذا الفرع" : "Craftsperson available in this branch"}</strong><small>{bool(branch.craftsman_available) ? (locale === "ar" ? "مفعّل لهذا الفرع" : "Enabled for this branch") : (locale === "ar" ? "غير مفعّل لهذا الفرع" : "Disabled for this branch")}</small></span></label>
           <a className="button text-button full" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${encodeURIComponent(`${text(branch.latitude)},${text(branch.longitude)}`)}`}><Icon name="location" size={17}/>{locale === "ar" ? "فتح الموقع على الخريطة" : "Open on map"}</a>
           <button className="button secondary full" type="button" onClick={() => openAvailability(branch)}><Icon name="box" size={17}/>{locale === "ar" ? "إدارة توفر المنتجات" : "Manage product availability"}</button>
@@ -276,30 +309,31 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
 
     {unassignedSales ? <PortalPanel title={locale === "ar" ? "مبيعات بدون فرع محدد" : "Unassigned branch sales"} subtitle={locale === "ar" ? "طلبات تاريخية لم يتم ربطها بفرع محدد." : "Historical orders that were not assigned to a branch."}><div className="detail-list compact"><div><span>{locale === "ar" ? "إجمالي المبيعات" : "Total sales"}</span><strong>{money(unassignedSales.total_sales, payload.account.currencyCode || "EGP", locale)}</strong></div><div><span>{locale === "ar" ? "الطلبات المؤكدة" : "Confirmed orders"}</span><strong>{numberValue(unassignedSales.confirmed_orders_count)}</strong></div></div></PortalPanel> : null}
 
-    {freeDeliveryBranch && isOwner ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal" role="dialog" aria-modal="true" aria-labelledby="branch-free-delivery-title"><header><div><span className="eyebrow"><Icon name="truck" size={17}/>{locale === "ar" ? "التوصيل المجاني" : "Free delivery"}</span><h2 id="branch-free-delivery-title">{locale === "ar" ? `إعدادات ${text(freeDeliveryBranch.name)}` : `${text(freeDeliveryBranch.name)} settings`}</h2></div><button className="icon-button" type="button" onClick={() => setFreeDeliveryBranch(null)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close"/></button></header><div className="portal-form"><label className="switch-row"><input type="checkbox" checked={freeDeliveryEnabled} disabled={Boolean(savingBranchService)} onChange={(event) => setFreeDeliveryEnabled(event.target.checked)}/><span><strong>{locale === "ar" ? "تفعيل التوصيل المجاني لهذا الفرع" : "Enable free delivery for this branch"}</strong><small>{locale === "ar" ? "يتم تطبيقه على طلبات هذا الفرع فقط." : "Applies only to orders fulfilled by this branch."}</small></span></label>{freeDeliveryEnabled ? <label>{locale === "ar" ? "الحد الأدنى لإجمالي المنتجات" : "Products subtotal minimum"}<input type="number" min="0.01" step="0.01" value={freeDeliveryMinimum} disabled={Boolean(savingBranchService)} onChange={(event) => setFreeDeliveryMinimum(event.target.value)}/></label> : null}<div className="modal-actions"><button className="button secondary" type="button" disabled={Boolean(savingBranchService)} onClick={() => setFreeDeliveryBranch(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button primary" type="button" disabled={Boolean(savingBranchService)} onClick={() => void saveFreeDelivery()}>{savingBranchService ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ الإعداد" : "Save setting")}</button></div></div></section></div> : null}
+    {freeDeliveryBranch && isOwner ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal" role="dialog" aria-modal="true" aria-labelledby="branch-free-delivery-title"><header><div><span className="eyebrow"><Icon name="truck" size={17}/>{locale === "ar" ? "التوصيل المجاني" : "Free delivery"}</span><h2 id="branch-free-delivery-title">{locale === "ar" ? `إعدادات ${text(freeDeliveryBranch.name)}` : `${text(freeDeliveryBranch.name)} settings`}</h2></div><button className="icon-button" data-modal-close type="button" onClick={() => setFreeDeliveryBranch(null)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close"/></button></header><div className="portal-form"><label className="switch-row"><input type="checkbox" checked={freeDeliveryEnabled} disabled={Boolean(savingBranchService)} onChange={(event) => setFreeDeliveryEnabled(event.target.checked)}/><span><strong>{locale === "ar" ? "تفعيل التوصيل المجاني لهذا الفرع" : "Enable free delivery for this branch"}</strong><small>{locale === "ar" ? "يتم تطبيقه على طلبات هذا الفرع فقط." : "Applies only to orders fulfilled by this branch."}</small></span></label>{freeDeliveryEnabled ? <label>{locale === "ar" ? "الحد الأدنى لإجمالي المنتجات" : "Products subtotal minimum"}<input type="number" min="0.01" step="0.01" value={freeDeliveryMinimum} disabled={Boolean(savingBranchService)} onChange={(event) => setFreeDeliveryMinimum(event.target.value)}/></label> : null}<div className="modal-actions"><button className="button secondary" type="button" disabled={Boolean(savingBranchService)} onClick={() => setFreeDeliveryBranch(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button primary" type="button" disabled={Boolean(savingBranchService)} onClick={() => void saveFreeDelivery()}>{savingBranchService ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ الإعداد" : "Save setting")}</button></div></div></section></div> : null}
 
-    {availabilityBranch ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal" role="dialog" aria-modal="true" aria-labelledby="branch-availability-title"><header><div><span className="eyebrow"><Icon name="box" size={17}/>{locale === "ar" ? "توفر المنتجات" : "Product availability"}</span><h2 id="branch-availability-title">{locale === "ar" ? `منتجات ${text(availabilityBranch.name)}` : `${text(availabilityBranch.name)} products`}</h2></div><button className="icon-button" type="button" onClick={() => setAvailabilityBranch(null)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close"/></button></header>
+    {availabilityBranch ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal" role="dialog" aria-modal="true" aria-labelledby="branch-availability-title"><header><div><span className="eyebrow"><Icon name="box" size={17}/>{locale === "ar" ? "توفر المنتجات" : "Product availability"}</span><h2 id="branch-availability-title">{locale === "ar" ? `منتجات ${text(availabilityBranch.name)}` : `${text(availabilityBranch.name)} products`}</h2></div><button className="icon-button" data-modal-close type="button" onClick={() => setAvailabilityBranch(null)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close"/></button></header>
       {products.length === 0 ? <EmptyState icon="box" title={locale === "ar" ? "أضف منتجات أولًا" : "Add products first"} body={locale === "ar" ? "لا توجد منتجات لإدارة توفرها في هذا الفرع." : "There are no products to manage for this branch."}/> : <div className="branch-product-availability-list">{products.map((product) => { const productId = text(product.id); const available = !unavailableIds.has(productId); return <label className="switch-row" key={productId}><input type="checkbox" checked={available} disabled={savingAvailability} onChange={(event) => toggleAvailability(productId, event.target.checked)}/><span><strong>{text(product.free_name)}</strong><small>{available ? (locale === "ar" ? "متاح في هذا الفرع" : "Available in this branch") : (locale === "ar" ? "غير متاح في هذا الفرع" : "Unavailable in this branch")}{` · ${text(product.quantity, "0")} ${text(product.unit)}`}</small></span></label>; })}</div>}
       <div className="modal-actions"><button className="button secondary" type="button" onClick={() => setAvailabilityBranch(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button primary" type="button" disabled={products.length === 0 || savingAvailability} onClick={() => void saveAvailability()}>{savingAvailability ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ التوفر" : "Save availability")}</button></div>
     </section></div> : null}
 
-    {open && isOwner ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal wide" role="dialog" aria-modal="true"><header><div><span className="eyebrow"><Icon name="branch" size={17}/>{form.id ? (locale === "ar" ? "تعديل فرع" : "Edit branch") : (locale === "ar" ? "فرع جديد" : "New branch")}</span><h2>{locale === "ar" ? "بيانات الفرع ومديره" : "Branch and manager details"}</h2></div><button className="icon-button" type="button" onClick={() => setOpen(false)}><Icon name="close"/></button></header>
+    {open && isOwner ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal wide" role="dialog" aria-modal="true"><header><div><span className="eyebrow"><Icon name="branch" size={17}/>{form.id ? (locale === "ar" ? "تعديل فرع" : "Edit branch") : (locale === "ar" ? "فرع جديد" : "New branch")}</span><h2>{locale === "ar" ? "بيانات الفرع ومديره" : "Branch and manager details"}</h2></div><button className="icon-button" data-modal-close type="button" aria-label={locale === "ar" ? "إغلاق" : "Close"} onClick={() => setOpen(false)}><Icon name="close"/></button></header>
       <form className="portal-form" onSubmit={submit}>
         <div className="form-grid two"><label>{locale === "ar" ? "اسم الفرع" : "Branch name"}<input required minLength={2} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })}/></label><label>{locale === "ar" ? "المدينة" : "City"}<select required value={form.cityId} onChange={(event) => setForm({ ...form, cityId: event.target.value })}><option value="">{locale === "ar" ? "اختر المدينة" : "Choose city"}</option>{cities.map((city) => <option key={text(city.id)} value={text(city.id)}>{text(locale === "ar" ? city.country_ar : city.country_en)} — {text(locale === "ar" ? city.governorate_ar : city.governorate_en)} — {text(locale === "ar" ? city.name_ar : city.name_en)}</option>)}</select></label><label>{locale === "ar" ? "اسم مدير الفرع" : "Branch manager name"}<input required minLength={2} value={form.managerName} onChange={(event) => setForm({ ...form, managerName: event.target.value })}/></label><label>{locale === "ar" ? "هاتف مدير الفرع" : "Branch manager phone"}<input required minLength={7} value={form.managerMobile} onChange={(event) => setForm({ ...form, managerMobile: event.target.value })}/></label></div>
-        <div className="location-picker-grid"><div className="form-grid two"><label>{locale === "ar" ? "خط العرض" : "Latitude"}<input required type="number" min="-90" max="90" step="any" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })}/></label><label>{locale === "ar" ? "خط الطول" : "Longitude"}<input required type="number" min="-180" max="180" step="any" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })}/></label><button className="button secondary" type="button" onClick={useCurrentLocation}><Icon name="target"/>{locale === "ar" ? "استخدام موقعي الحالي" : "Use current location"}</button></div>{mapUrl(form.latitude, form.longitude) ? <iframe className="location-map-preview" title={locale === "ar" ? "معاينة موقع الفرع" : "Branch location preview"} src={mapUrl(form.latitude, form.longitude)} loading="lazy"/> : null}</div>
+        <div className="location-picker-grid"><div className="form-grid two"><label>{locale === "ar" ? "خط العرض" : "Latitude"}<input required type="number" min="-90" max="90" step="any" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })}/></label><label>{locale === "ar" ? "خط الطول" : "Longitude"}<input required type="number" min="-180" max="180" step="any" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })}/></label><button className="button secondary" type="button" onClick={useCurrentLocation}><Icon name="target"/>{locale === "ar" ? "استخدام موقعي الحالي" : "Use current location"}</button></div><CoordinateMapPicker latitude={form.latitude} longitude={form.longitude} locale={locale} onChange={updateMapLocation}/></div>
         <div className="branch-service-grid"><label>{locale === "ar" ? "إعداد التوصيل" : "Delivery setting"}<select value={form.deliveryChoice} onChange={(event) => setForm({ ...form, deliveryChoice: event.target.value as DeliveryChoice })}><option value="inherit">{locale === "ar" ? "يتبع إعداد المتجر" : "Inherit store setting"}</option><option value="enabled">{locale === "ar" ? "مفعّل في الفرع" : "Enabled for branch"}</option><option value="disabled">{locale === "ar" ? "متوقف في الفرع" : "Disabled for branch"}</option></select></label><label>{locale === "ar" ? "طريقة التسعير" : "Pricing method"}<select disabled={form.deliveryChoice !== "enabled"} value={form.deliveryPricingMethod} onChange={(event) => setForm({ ...form, deliveryPricingMethod: event.target.value })}><option value="flat">{locale === "ar" ? "سعر ثابت" : "Flat"}</option><option value="zone">{locale === "ar" ? "حسب المنطقة" : "By zone"}</option><option value="weight">{locale === "ar" ? "حسب الوزن" : "By weight"}</option></select></label><label className="switch-row"><input type="checkbox" checked={form.craftsmanAvailable} onChange={(event) => setForm({ ...form, craftsmanAvailable: event.target.checked })}/><span><strong>{locale === "ar" ? "فني متاح من الفرع" : "Craftsman available"}</strong></span></label></div>
         <div className="branch-service-grid"><label className="switch-row"><input type="checkbox" checked={form.freeDeliveryEnabled} onChange={(event) => setForm({ ...form, freeDeliveryEnabled: event.target.checked })}/><span><strong>{locale === "ar" ? "توصيل مجاني عند حد أدنى" : "Free delivery above a minimum"}</strong><small>{locale === "ar" ? "ينطبق على طلبات هذا الفرع فقط." : "Applies only to this branch orders."}</small></span></label>{form.freeDeliveryEnabled ? <label>{locale === "ar" ? "الحد الأدنى لإجمالي المنتجات" : "Products subtotal minimum"}<input type="number" min="0.01" step="0.01" value={form.freeDeliveryMinimum} onChange={(event) => setForm({ ...form, freeDeliveryMinimum: event.target.value })}/></label> : null}</div>
-        <div className="branch-upload-grid"><FileUpload title={locale === "ar" ? "صورة واجهة الفرع" : "Branch storefront photo"} accept="image/jpeg,image/png,image/webp" uploaded={Boolean(form.frontImageUrl)} busy={uploading === "front"} preview={form.frontPreviewUrl} onFile={(file) => void upload("front", file)}/><FileUpload title={locale === "ar" ? "وجه بطاقة المدير" : "Manager ID front"} accept="image/jpeg,image/png,image/webp" uploaded={Boolean(form.managerIdFrontPath)} busy={uploading === "managerFront"} onFile={(file) => void upload("managerFront", file)}/><FileUpload title={locale === "ar" ? "ظهر بطاقة المدير" : "Manager ID back"} accept="image/jpeg,image/png,image/webp" uploaded={Boolean(form.managerIdBackPath)} busy={uploading === "managerBack"} onFile={(file) => void upload("managerBack", file)}/></div>
+        <div className="branch-upload-grid"><FileUpload title={locale === "ar" ? "صورة واجهة الفرع" : "Branch storefront photo"} accept="image/jpeg,image/png,image/webp" uploaded={Boolean(form.frontImageUrl)} busy={uploading === "front"} preview={form.frontPreviewUrl} locale={locale} onFile={(file) => void upload("front", file)}/><FileUpload title={locale === "ar" ? "وجه بطاقة المدير" : "Manager ID front"} accept="image/jpeg,image/png,image/webp" uploaded={Boolean(form.managerIdFrontPath)} busy={uploading === "managerFront"} preview={form.managerIdFrontPreviewUrl} locale={locale} onFile={(file) => void upload("managerFront", file)}/><FileUpload title={locale === "ar" ? "ظهر بطاقة المدير" : "Manager ID back"} accept="image/jpeg,image/png,image/webp" uploaded={Boolean(form.managerIdBackPath)} busy={uploading === "managerBack"} preview={form.managerIdBackPreviewUrl} locale={locale} onFile={(file) => void upload("managerBack", file)}/></div>
         <label className="switch-row"><input type="checkbox" checked={form.usesParentCommercialRegister} onChange={(event) => setForm({ ...form, usesParentCommercialRegister: event.target.checked })}/><span><strong>{locale === "ar" ? "استخدام السجل التجاري الرئيسي" : "Use main store commercial register"}</strong><small>{locale === "ar" ? "ألغِ الاختيار فقط لو الفرع كيان قانوني مستقل." : "Turn off only if this branch is a separate legal entity."}</small></span></label>
-        {!form.usesParentCommercialRegister ? <FileUpload title={locale === "ar" ? "السجل التجاري المستقل" : "Separate commercial register"} accept="image/jpeg,image/png,application/pdf" uploaded={Boolean(form.commercialRegisterPath)} busy={uploading === "register"} onFile={(file) => void upload("register", file)}/> : null}
+        {!form.usesParentCommercialRegister ? <FileUpload title={locale === "ar" ? "السجل التجاري المستقل" : "Separate commercial register"} accept="image/jpeg,image/png,application/pdf" uploaded={Boolean(form.commercialRegisterPath)} busy={uploading === "register"} previewHref={form.commercialRegisterPreviewUrl} locale={locale} onFile={(file) => void upload("register", file)}/> : null}
         <div className="form-actions"><button className="button secondary" type="button" onClick={() => setOpen(false)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button primary" disabled={saving || Boolean(uploading)}>{saving ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ وإرسال للمراجعة" : "Save and submit for review")}</button></div>
       </form></section></div> : null}
+    {confirmDialog}
   </div>;
 }
 
-function FileUpload({ title, accept, uploaded, busy, preview, onFile }: { title: string; accept: string; uploaded: boolean; busy: boolean; preview?: string; onFile: (file: File) => void }) {
+function FileUpload({ title, accept, uploaded, busy, preview, previewHref, locale, onFile }: { title: string; accept: string; uploaded: boolean; busy: boolean; preview?: string; previewHref?: string; locale: "ar" | "en"; onFile: (file: File) => void }) {
   const hint = accept.includes("application/pdf")
     ? "JPG, PNG, PDF - up to 5 MB"
     : "JPG, PNG, WEBP - up to 5 MB";
-  return <label className={`document-upload ${uploaded ? "uploaded" : ""}`}>{preview ? <img src={preview} alt=""/> : <Icon name={uploaded ? "check" : "upload"}/>}<strong>{title}</strong><small>{busy ? "..." : uploaded ? "✓" : hint}</small><input type="file" accept={accept} onChange={(event) => { const file = event.target.files?.[0]; if (file) onFile(file); }}/></label>;
+  return <div className={`document-upload-shell ${uploaded ? "uploaded" : ""}`}><label className={`document-upload ${uploaded ? "uploaded" : ""}`}>{preview ? <img src={preview} alt=""/> : <Icon name={uploaded ? "check" : "upload"}/>}<strong>{title}</strong><small>{busy ? "..." : uploaded ? (locale === "ar" ? "تم الرفع" : "Uploaded") : hint}</small><input type="file" accept={accept} onChange={(event) => { const file = event.target.files?.[0]; if (file) onFile(file); event.currentTarget.value = ""; }}/></label>{(preview || previewHref) ? <a className="document-upload-preview" href={previewHref || preview} target="_blank" rel="noreferrer"><Icon name="eye" size={15}/>{locale === "ar" ? "معاينة الملف الحالي" : "Preview current file"}</a> : null}</div>;
 }

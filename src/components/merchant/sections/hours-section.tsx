@@ -7,8 +7,8 @@ import { PortalPanel } from "@/components/merchant/portal-ui";
 import { bool, rows, text } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
-const daysAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const daysAr = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة"];
+const daysEn = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const timeOptions = Array.from({ length: 48 }, (_, index) => {
   const hour = Math.floor(index / 2);
   const minute = index % 2 ? 30 : 0;
@@ -24,7 +24,7 @@ export function HoursSection({ payload, locale, refresh, notify }: SectionProps)
       const closesAt = text(source?.closes_at, "22:00").slice(0, 5);
       return {
         dayOfWeek: day,
-        isOpen: source ? bool(source.is_open) : day !== 5,
+        isOpen: source ? bool(source.is_open) : day !== 6,
         opensAt: timeOptions.includes(opensAt) ? opensAt : "09:00",
         closesAt: timeOptions.includes(closesAt) ? closesAt : "22:00",
       };

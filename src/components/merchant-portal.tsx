@@ -23,7 +23,7 @@ import { RequestsSection } from "@/components/merchant/sections/requests-section
 import { SettingsSection } from "@/components/merchant/sections/settings-section";
 import { StoreSection } from "@/components/merchant/sections/store-section";
 import { portalGet } from "@/components/merchant/portal-client";
-import { PortalAppShell, type PortalNavGroup, type PortalNavItem } from "@/components/portal-v2/portal-shell";
+import { PortalAppShell, PortalBootstrapSkeleton, type PortalNavGroup, type PortalNavItem } from "@/components/portal-v2/portal-shell";
 import { Notice } from "@/components/merchant/portal-ui";
 import { humanError, numberValue, row, statusLabel, text, type PortalPayload } from "@/components/merchant/portal-utils";
 import { useSitePreferences } from "@/components/site-preferences";
@@ -137,7 +137,7 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
     return () => window.clearTimeout(timer);
   }, [payload, activeSection]);
 
-  if (loading) return <PortalState loading title={locale === "ar" ? "جارٍ تجهيز مساحة المتجر" : "Preparing your store workspace"} body={locale === "ar" ? "نتحقق من الجلسة والصلاحيات ونحمّل البيانات الآمنة." : "Checking the session and permissions, then loading secure data."}/>;
+  if (loading) return <PortalBootstrapSkeleton kind="merchant" locale={locale}/>;
   if (!payload) {
     const registrationError = ["merchant_account_required", "merchant_pending_approval", "merchant_registration_rejected", "profile_incomplete"].includes(error);
     return <PortalState title={locale === "ar" ? "تعذر فتح مساحة المتجر" : "Could not open the store workspace"} body={humanError(error, locale)} action={<div className="state-actions">{registrationError ? <Link className="button primary" href="/merchant-register">{locale === "ar" ? "فتح تسجيل المتجر" : "Open merchant registration"}</Link> : <button className="button primary" type="button" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button>}<Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;

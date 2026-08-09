@@ -705,7 +705,7 @@ async function loadSection(context: MerchantContext, section: string) {
     const [branches, cities, documents, products, availability, branchSales] = await Promise.all([
       context.service.from("branches").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }),
       context.service.from("cities").select("id, name_ar, name_en, governorate_ar, governorate_en, country_ar, country_en").eq("is_active", true).order("display_order").limit(1000),
-      context.service.from("merchant_documents").select("id, branch_id, manager_name, kind, status, rejection_reason, created_at").eq("merchant_id", context.merchantId).not("branch_id", "is", null).is("superseded_by", null),
+      context.service.from("merchant_documents").select("id, branch_id, manager_name, kind, storage_bucket, storage_path, mime_type, status, rejection_reason, reviewed_at, created_at").eq("merchant_id", context.merchantId).not("branch_id", "is", null).is("superseded_by", null),
       context.service.from("products").select("id,free_name,is_active,is_available,quantity,unit").eq("merchant_id", context.merchantId).eq("is_active", true).order("free_name").limit(1000),
       context.service.from("branch_product_availability").select("branch_id,product_id,is_available").eq("merchant_id", context.merchantId),
       context.userDb.rpc("merchant_branch_sales_summary"),
@@ -713,7 +713,22 @@ async function loadSection(context: MerchantContext, section: string) {
     const scope = allowedBranchIds(context);
     const scopedBranchRows = scope ? ((branches.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.id))) : (branches.data ?? []) as Row[];
     const branchRows = await Promise.all(scopedBranchRows.map(async (item) => ({ ...item, front_signed_url: await signedStorageUrl(context, "storefront-photos", item.front_image_url, 6 * 60 * 60) })));
-    const documentRows = scope ? ((documents.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.branch_id))) : documents.data ?? [];
+    const rawDocumentRows = scope ? ((documents.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.branch_id))) : (documents.data ?? []) as Row[];
+    const documentRows = context.isOwner
+      ? await Promise.all(rawDocumentRows.map(async (item) => ({
+          ...item,
+          preview_signed_url: await signedStorageUrl(context, value(item.storage_bucket), item.storage_path, 10 * 60),
+        })))
+      : rawDocumentRows.map((item) => ({
+          id: item.id,
+          branch_id: item.branch_id,
+          manager_name: item.manager_name,
+          kind: item.kind,
+          status: item.status,
+          rejection_reason: item.rejection_reason,
+          reviewed_at: item.reviewed_at,
+          created_at: item.created_at,
+        }));
     const availabilityRows = scope ? ((availability.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.branch_id))) : availability.data ?? [];
     const allSalesRows = branchSales.error ? [] : (branchSales.data ?? []) as Row[];
     const branchSalesRows = scope ? allSalesRows.filter((item: Row) => Boolean(item.branch_id) && scope.has(String(item.branch_id))) : allSalesRows.filter((item: Row) => Boolean(item.branch_id));

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost } from "@/components/merchant/portal-client";
 import { EmptyState, PortalPanel } from "@/components/merchant/portal-ui";
+import { usePortalConfirm } from "@/components/portal-v2/portal-dialogs";
 import { money, row, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
@@ -15,6 +16,7 @@ function deliveryRows(value: unknown): DeliveryRow[] {
 }
 
 export function DeliverySection({ payload, locale, refresh, notify }: SectionProps) {
+  const { confirm, confirmDialog } = usePortalConfirm(locale);
   const current = row(payload.data.settings);
   const shipping = row(payload.data.shipping);
   const primaryBranch = row(payload.data.primaryBranch);
@@ -39,7 +41,10 @@ export function DeliverySection({ payload, locale, refresh, notify }: SectionPro
 
   function updateRow(index: number, patch: Partial<DeliveryRow>) { setMethodRows((currentRows) => ({ ...currentRows, [method]: currentRows[method].map((item, currentIndex) => currentIndex === index ? { ...item, ...patch } : item) })); }
   function addRow() { setMethodRows((currentRows) => ({ ...currentRows, [method]: [...currentRows[method], { label: "", price: "0" }] })); }
-  function removeRow(index: number) { setMethodRows((currentRows) => ({ ...currentRows, [method]: currentRows[method].filter((_, currentIndex) => currentIndex !== index) })); }
+  async function removeRow(index: number) {
+    if (!(await confirm({ title: locale === "ar" ? "حذف صف السعر" : "Delete pricing row", body: locale === "ar" ? "هيتم حذف الصف من المسودة الحالية. التغيير النهائي يتم عند حفظ الإعدادات." : "This row will be removed from the current draft. The change becomes final when settings are saved.", confirmLabel: locale === "ar" ? "حذف الصف" : "Delete row", tone: "danger" }))) return;
+    setMethodRows((currentRows) => ({ ...currentRows, [method]: currentRows[method].filter((_, currentIndex) => currentIndex !== index) }));
+  }
 
   async function savePrimaryFreeDelivery() {
     if (!text(primaryBranch.id)) return;
@@ -74,7 +79,7 @@ export function DeliverySection({ payload, locale, refresh, notify }: SectionPro
     try { await portalPost("save_shipping_company", { name: companyName.trim(), isActive: true }); setCompanyName(""); notify(locale === "ar" ? "تمت إضافة شركة الشحن." : "Shipping company added.", "success"); await refresh(); }
     catch (error) { notify(error instanceof Error ? error.message : "company_save_failed", "error"); }
   }
-  async function removeCompany(id: string) { if (!confirm(locale === "ar" ? "حذف شركة الشحن وشرائحها؟" : "Delete this shipping company and its tiers?")) return; try { await portalPost("delete_shipping_company", { id }); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "company_delete_failed", "error"); } }
+  async function removeCompany(id: string) { if (!(await confirm({ title: locale === "ar" ? "حذف شركة الشحن" : "Delete shipping company", body: locale === "ar" ? "سيتم حذف شركة الشحن والشرائح المرتبطة بها." : "The shipping company and its related tiers will be deleted.", confirmLabel: locale === "ar" ? "حذف الشركة" : "Delete company", tone: "danger" }))) return; try { await portalPost("delete_shipping_company", { id }); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "company_delete_failed", "error"); } }
   async function saveBatch() {
     const min = Number(batch.min); const max = Number(batch.max); const price = Number(batch.price);
     if (!batch.companyId || !Number.isFinite(min) || !Number.isFinite(max) || max <= min || !Number.isFinite(price) || price < 0) {
@@ -82,7 +87,7 @@ export function DeliverySection({ payload, locale, refresh, notify }: SectionPro
     }
     try { await portalPost("save_shipping_batch", { companyId: batch.companyId, minWeight: min, maxWeight: max, price }); setBatch({ companyId: "", min: "0", max: "1", price: "0" }); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "batch_save_failed", "error"); }
   }
-  async function removeBatch(id: string) { try { await portalPost("delete_shipping_batch", { id }); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "batch_delete_failed", "error"); } }
+  async function removeBatch(id: string) { if (!(await confirm({ title: locale === "ar" ? "حذف شريحة الشحن" : "Delete shipping tier", body: locale === "ar" ? "سيتم حذف شريحة الوزن والسعر دي." : "This weight and price tier will be deleted.", confirmLabel: locale === "ar" ? "حذف الشريحة" : "Delete tier", tone: "danger" }))) return; try { await portalPost("delete_shipping_batch", { id }); await refresh(); } catch (error) { notify(error instanceof Error ? error.message : "batch_delete_failed", "error"); } }
 
   return <div className="portal-section-stack">
     {text(primaryBranch.id) ? <PortalPanel title={locale === "ar" ? "التوصيل المجاني للمتجر الأساسي" : "Main store free delivery"} subtitle={locale === "ar" ? "فعّل التوصيل المجاني عندما يصل إجمالي المنتجات إلى حد أدنى تحدده. ويمكن ضبط كل فرع آخر بصورة مستقلة من صفحة الفروع." : "Enable free delivery when the products subtotal reaches a minimum you choose. Other branches can be configured independently from the Branches page."}>
@@ -101,7 +106,7 @@ export function DeliverySection({ payload, locale, refresh, notify }: SectionPro
           <div className="setting-options three">{(["zone", "weight", "flat"] as Method[]).map((item) => <button type="button" className={method === item ? "selected" : ""} onClick={() => setMethod(item)} key={item}><strong>{item === "zone" ? (locale === "ar" ? "حسب المنطقة" : "By zone") : item === "weight" ? (locale === "ar" ? "حسب الوزن" : "By weight") : (locale === "ar" ? "سعر ثابت" : "Flat rate")}</strong></button>)}</div>
         </div>
         {!enabled[method] ? <p className="form-notice">{locale === "ar" ? "هذه الطريقة غير مفعلة حاليًا، ويمكنك تعديل بياناتها ثم تفعيلها من الزر الخاص بها." : "This method is disabled. You can edit it first, then enable it from its switch."}</p> : null}
-        {method !== "weight" ? <div className="delivery-row-list">{methodRows[method].map((item, index) => <article className="delivery-row-editor" key={`${method}-${index}`}><label><span>{method === "zone" ? (locale === "ar" ? "اسم المنطقة أو المدينة" : "Zone or city") : (locale === "ar" ? "الوصف" : "Label")}</span><input value={item.label} onChange={(event) => updateRow(index, { label: event.target.value })}/></label><label><span>{locale === "ar" ? `السعر (${currency})` : `Price (${currency})`}</span><input type="number" min="0" step="0.01" value={item.price} onChange={(event) => updateRow(index, { price: event.target.value })}/></label><button className="icon-button danger" type="button" aria-label={locale === "ar" ? "حذف الصف" : "Delete row"} onClick={() => removeRow(index)}><Icon name="trash" size={17}/></button></article>)}<button className="button secondary compact" type="button" onClick={addRow}><Icon name="plus" size={17}/>{locale === "ar" ? "إضافة صف سعر" : "Add price row"}</button></div> : <p className="form-notice">{locale === "ar" ? "استخدم شركات الشحن والشرائح تحت عشان تسعّر حسب الوزن." : "Use shipping companies and tiers below for weight pricing."}</p>}
+        {method !== "weight" ? <div className="delivery-row-list">{methodRows[method].map((item, index) => <article className="delivery-row-editor" key={`${method}-${index}`}><label><span>{method === "zone" ? (locale === "ar" ? "اسم المنطقة أو المدينة" : "Zone or city") : (locale === "ar" ? "الوصف" : "Label")}</span><input value={item.label} onChange={(event) => updateRow(index, { label: event.target.value })}/></label><label><span>{locale === "ar" ? `السعر (${currency})` : `Price (${currency})`}</span><input type="number" min="0" step="0.01" value={item.price} onChange={(event) => updateRow(index, { price: event.target.value })}/></label><button className="icon-button danger" type="button" aria-label={locale === "ar" ? "حذف الصف" : "Delete row"} onClick={() => void removeRow(index)}><Icon name="trash" size={17}/></button></article>)}<button className="button secondary compact" type="button" onClick={addRow}><Icon name="plus" size={17}/>{locale === "ar" ? "إضافة صف سعر" : "Add price row"}</button></div> : <p className="form-notice">{locale === "ar" ? "استخدم شركات الشحن والشرائح تحت عشان تسعّر حسب الوزن." : "Use shipping companies and tiers below for weight pricing."}</p>}
       </div>
     </PortalPanel>
 
@@ -111,8 +116,9 @@ export function DeliverySection({ payload, locale, refresh, notify }: SectionPro
         {companies.length ? <div className="shipping-company-list">{companies.map((company) => <article key={text(company.id)}><strong>{text(company.name)}</strong><button className="icon-button danger" aria-label={locale === "ar" ? "حذف شركة الشحن" : "Delete shipping company"} onClick={() => void removeCompany(text(company.id))}><Icon name="trash" size={16}/></button></article>)}</div> : <EmptyState title={locale === "ar" ? "لا توجد شركات شحن" : "No shipping companies"} body={locale === "ar" ? "أضف شركة لو هتستخدم التسعير حسب الوزن." : "Add a company for weight-based pricing."}/>} 
         <div className="form-grid four"><label><span>{locale === "ar" ? "الشركة" : "Company"}</span><select value={batch.companyId} onChange={(event) => setBatch({ ...batch, companyId: event.target.value })}><option value="">—</option>{companies.map((company) => <option value={text(company.id)} key={text(company.id)}>{text(company.name)}</option>)}</select></label><label><span>{locale === "ar" ? "من كجم" : "Min kg"}</span><input type="number" min="0" step="0.01" value={batch.min} onChange={(event) => setBatch({ ...batch, min: event.target.value })}/></label><label><span>{locale === "ar" ? "إلى كجم" : "Max kg"}</span><input type="number" min="0.01" step="0.01" value={batch.max} onChange={(event) => setBatch({ ...batch, max: event.target.value })}/></label><label><span>{locale === "ar" ? `السعر (${currency})` : `Price (${currency})`}</span><input type="number" min="0" step="0.01" value={batch.price} onChange={(event) => setBatch({ ...batch, price: event.target.value })}/></label></div>
         <div className="delivery-tier-actions"><button className="button secondary" disabled={!batch.companyId} onClick={() => void saveBatch()}><Icon name="plus" size={17}/>{locale === "ar" ? "إضافة شريحة" : "Add tier"}</button></div>
-        {batches.length ? <div className="portal-table-wrap"><table className="portal-table"><thead><tr><th>{locale === "ar" ? "الشركة" : "Company"}</th><th>{locale === "ar" ? "الوزن" : "Weight"}</th><th>{locale === "ar" ? "السعر" : "Price"}</th><th/></tr></thead><tbody>{batches.map((item: PortalRow) => <tr key={text(item.id)}><td>{text(item.company_name || item.company_id)}</td><td>{text(item.min_weight_kg)} - {text(item.max_weight_kg)} kg</td><td>{money(item.price, currency, locale)}</td><td><button className="icon-button danger" aria-label={locale === "ar" ? "حذف الشريحة" : "Delete tier"} onClick={() => void removeBatch(text(item.id))}><Icon name="trash" size={16}/></button></td></tr>)}</tbody></table></div> : null}
+        {batches.length ? <div className="portal-table-wrap"><table className="portal-table"><thead><tr><th>{locale === "ar" ? "الشركة" : "Company"}</th><th>{locale === "ar" ? "الوزن" : "Weight"}</th><th>{locale === "ar" ? "السعر" : "Price"}</th><th/></tr></thead><tbody>{batches.map((item: PortalRow) => <tr key={text(item.id)}><td>{text(item.company_name || item.company_id)}</td><td>{text(item.min_weight_kg)} - {text(item.max_weight_kg)} {locale === "ar" ? "كجم" : "kg"}</td><td>{money(item.price, currency, locale)}</td><td><button className="icon-button danger" aria-label={locale === "ar" ? "حذف الشريحة" : "Delete tier"} onClick={() => void removeBatch(text(item.id))}><Icon name="trash" size={16}/></button></td></tr>)}</tbody></table></div> : null}
       </div>
     </PortalPanel>
+    {confirmDialog}
   </div>;
 }

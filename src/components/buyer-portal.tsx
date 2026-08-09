@@ -6,7 +6,7 @@ import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import { buyerGet } from "@/components/buyer/portal-client";
 import type { BuyerSectionProps } from "@/components/buyer/section-props";
-import { PortalAppShell, type PortalNavGroup, type PortalNavItem } from "@/components/portal-v2/portal-shell";
+import { PortalAppShell, PortalBootstrapSkeleton, type PortalNavGroup, type PortalNavItem } from "@/components/portal-v2/portal-shell";
 import { BuyerAlertsSection } from "@/components/buyer/sections/alerts-section";
 import { BuyerFavoritesSection } from "@/components/buyer/sections/favorites-section";
 import { BuyerHomeSection } from "@/components/buyer/sections/home-section";
@@ -103,7 +103,7 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
     return () => window.clearTimeout(timer);
   }, [payload, active]);
 
-  if (loading) return <BuyerState loading title={locale === "ar" ? "جارٍ تجهيز حساب المشتري" : "Preparing your buyer account"} body={locale === "ar" ? "بنحمّل طلباتك وعروضك وبياناتك الآمنة." : "Loading your requests, offers, and secure account data."}/>;
+  if (loading) return <PortalBootstrapSkeleton kind="buyer" locale={locale}/>;
   if (!payload) return <BuyerState title={locale === "ar" ? "تعذر فتح حساب المشتري" : "Could not open the buyer portal"} body={humanError(error, locale)} action={<div className="state-actions"><button className="button primary" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button><Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;
 
   const activePayloadReady = buyerPortalCache?.section === active;

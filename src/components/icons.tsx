@@ -5,7 +5,7 @@ type IconName =
   | "compare" | "target" | "list" | "store" | "history" | "bell" | "box" | "quote"
   | "users" | "desktop" | "arrow" | "shield" | "location" | "search" | "mail"
   | "phone" | "chevron" | "dashboard" | "branch" | "settings" | "logout" | "plus"
-  | "edit" | "trash" | "download" | "filter" | "clock" | "money" | "card" | "info" | "microphone" | "stop" | "star" | "truck";
+  | "edit" | "trash" | "download" | "filter" | "clock" | "money" | "card" | "info" | "eye" | "microphone" | "stop" | "star" | "truck";
 
 const paths: Record<IconName, ReactNode> = {
   menu: <><path d="M4 6h16M4 12h16M4 18h16" /></>,
@@ -46,6 +46,7 @@ const paths: Record<IconName, ReactNode> = {
   money: <><circle cx="12" cy="12" r="9"/><path d="M16 8h-5a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H8M12 6v12"/></>,
   card: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h2"/></>,
   info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></>,
+  eye: <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></>,
   microphone: <><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></>,
   stop: <><circle cx="12" cy="12" r="9"/><rect x="9" y="9" width="6" height="6" rx="1"/></>,
   star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9Z"/>,

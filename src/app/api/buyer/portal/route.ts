@@ -97,6 +97,16 @@ async function loadQuotes(context: BuyerContext, limit = 60) {
   return ((quotes.data ?? []) as Row[]).map((item) => ({ ...item, direct_contact: contactMap.get(value(item.id)) ?? null }));
 }
 
+async function loadMerchantBadges(context: BuyerContext, merchantIds: string[]) {
+  const ids = [...new Set(merchantIds.map(uuid).filter(Boolean))];
+  const map = new Map<string, Row>();
+  if (!ids.length) return map;
+  const result = await context.userDb.rpc("buyer_merchant_badges", { p_merchant_ids: ids });
+  if (result.error) return map;
+  for (const item of (result.data ?? []) as Row[]) map.set(value(item.merchant_id), item);
+  return map;
+}
+
 async function loadOffers(context: BuyerContext, limit = 120): Promise<Row[]> {
   const offers = await context.userDb.from("buyer_offer_results").select("*")
     .order("generated_at", { ascending: false }).order("ranking", { ascending: true }).limit(limit);
@@ -111,7 +121,12 @@ async function loadOffers(context: BuyerContext, limit = 120): Promise<Row[]> {
   for (const item of (items.data ?? []) as Row[]) {
     const key = value(item.offer_id); itemMap.set(key, [...(itemMap.get(key) ?? []), item]);
   }
-  return offerRows.map((offer): Row => ({ ...offer, items: itemMap.get(value(offer.id)) ?? [] }));
+  const badgeMap = await loadMerchantBadges(context, offerRows.map((offer) => value(offer.merchant_id)));
+  return offerRows.map((offer): Row => ({
+    ...offer,
+    ...objectValue(badgeMap.get(value(offer.merchant_id))),
+    items: itemMap.get(value(offer.id)) ?? [],
+  }));
 }
 
 async function loadRfqResponses(context: BuyerContext) {
@@ -139,8 +154,13 @@ async function loadOrders(context: BuyerContext, limit = 100) {
   if (error) throw new PortalError(error.message, 400);
   const fulfillmentMap = new Map<string, Row[]>();
   for (const item of (fulfillments.data ?? []) as Row[]) fulfillmentMap.set(value(item.order_id), [...(fulfillmentMap.get(value(item.order_id)) ?? []), item]);
+  const detailRows = (details.data ?? []) as Row[];
+  const badgeMap = await loadMerchantBadges(context, detailRows.map((item) => value(item.merchant_id)));
   const detailsMap = new Map<string, Row[]>();
-  for (const item of (details.data ?? []) as Row[]) detailsMap.set(value(item.order_id), [...(detailsMap.get(value(item.order_id)) ?? []), item]);
+  for (const item of detailRows) {
+    const merged = { ...item, ...objectValue(badgeMap.get(value(item.merchant_id))) };
+    detailsMap.set(value(item.order_id), [...(detailsMap.get(value(item.order_id)) ?? []), merged]);
+  }
   const reviewMap = new Map<string, Row[]>();
   for (const item of (reviews.data ?? []) as Row[]) reviewMap.set(value(item.order_id), [...(reviewMap.get(value(item.order_id)) ?? []), item]);
   return orderRows.map((order) => ({ ...order, fulfillments: fulfillmentMap.get(value(order.id)) ?? [], merchant_details: detailsMap.get(value(order.id)) ?? [], reviews: reviewMap.get(value(order.id)) ?? [] }));
@@ -616,6 +636,27 @@ export async function POST(request: NextRequest) {
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: { saved: true } });
     }
+    if (action === "add_search_favorite") {
+      const searchText = value(body.searchText).replace(/\s+/g, " ").slice(0, 200);
+      if (searchText.length < 2) throw new PortalError("search_text_required");
+      const existing = await context.service.from("favorites").select("id").eq("buyer_id", context.user.id).eq("favorite_type", "search").ilike("search_text", searchText).maybeSingle();
+      if (existing.error) throw new PortalError(existing.error.message, 400);
+      if (existing.data?.id) return NextResponse.json({ data: { active: true, id: existing.data.id, existing: true } });
+      const created = await context.service.from("favorites").insert({ buyer_id: context.user.id, favorite_type: "search", search_text: searchText }).select("id").single();
+      if (created.error) throw new PortalError(created.error.message, 400);
+      return NextResponse.json({ data: { active: true, id: created.data.id } });
+    }
+    if (action === "set_favorite_price_alert") {
+      const favoriteId = uuid(body.favoriteId);
+      const enabled = booleanValue(body.enabled);
+      if (!favoriteId) throw new PortalError("favorite_not_found", 404);
+      const favorite = await context.service.from("favorites").select("id,favorite_type,product_id").eq("id", favoriteId).eq("buyer_id", context.user.id).maybeSingle();
+      if (favorite.error) throw new PortalError(favorite.error.message, 400);
+      if (!favorite.data?.id) throw new PortalError("favorite_not_found", 404);
+      const updated = await context.service.from("favorites").update({ is_price_alert_enabled: enabled }).eq("id", favoriteId).eq("buyer_id", context.user.id).select("id").single();
+      if (updated.error) throw new PortalError(updated.error.message, 400);
+      return NextResponse.json({ data: { active: enabled, id: favoriteId } });
+    }
     if (action === "toggle_favorite") {
       const favoriteType = value(body.favoriteType); const targetId = uuid(body.targetId);
       if (!["merchant", "product", "search"].includes(favoriteType)) throw new PortalError("invalid_favorite_type");
@@ -683,6 +724,18 @@ export async function POST(request: NextRequest) {
       }).select("id").single();
       if (created.error) throw new PortalError(created.error.message, 400);
       return NextResponse.json({ data: { active: true, id: created.data.id } });
+    }
+    if (action === "set_price_alert_active") {
+      const alertId = uuid(body.alertId);
+      const active = booleanValue(body.active);
+      if (!alertId) throw new PortalError("price_alert_not_found", 404);
+      const current = await context.service.from("price_alerts").select("id,favorite_id").eq("id", alertId).eq("buyer_id", context.user.id).maybeSingle();
+      if (current.error) throw new PortalError(current.error.message, 400);
+      if (!current.data?.id) throw new PortalError("price_alert_not_found", 404);
+      const updated = await context.service.from("price_alerts").update({ is_active: active, cancelled_at: active ? null : new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", alertId).eq("buyer_id", context.user.id).select("id,favorite_id").single();
+      if (updated.error) throw new PortalError(updated.error.message, 400);
+      if (updated.data.favorite_id) await context.service.from("favorites").update({ is_price_alert_enabled: active }).eq("id", updated.data.favorite_id).eq("buyer_id", context.user.id);
+      return NextResponse.json({ data: { active, id: updated.data.id } });
     }
     if (action === "stop_price_alert") {
       const alertId = uuid(body.alertId);
