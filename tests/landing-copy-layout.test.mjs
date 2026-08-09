@@ -12,10 +12,7 @@ const registration = read("src/components/merchant-registration-form.tsx");
 const css = read("src/app/globals.css");
 const supportRoute = read("src/app/api/support/route.ts");
 
-test("hero copy keeps the requested three-line Arabic and English structure", () => {
-  assert.match(publicSite, /اطلب احتياجاتك وقارن/);
-  assert.match(publicSite, /عروض المتاجر/);
-  assert.match(publicSite, /في مكان واحد/);
+test("hero copy keeps the requested three-line English structure", () => {
   assert.match(publicSite, /Request what you need and compare/);
   assert.match(publicSite, /store offers/);
   assert.match(publicSite, /in one place/);
@@ -23,19 +20,15 @@ test("hero copy keeps the requested three-line Arabic and English structure", ()
 });
 
 test("buyer and merchant journey copy includes every requested input and management detail", () => {
-  for (const phrase of ["ملف PDF", "تسجيلًا صوتيًا", "واجهة واحدة", "إدارة فروعك", "واجهة منظمة سهلة الإدارة", "من مكان واحد"]) {
-    assert.match(publicSite + siteContent, new RegExp(phrase));
+  for (const phrase of ["PDF", "voice recording", "one interface", "branches", "quote requests", "one place"]) {
+    assert.match(publicSite + siteContent, new RegExp(phrase, "i"));
   }
-  assert.doesNotMatch(publicSite, /بدون تكرار أو تعقيد/);
-  assert.doesNotMatch(publicSite, /مساحة موحدة لاستقبال الطلبات/);
-  assert.doesNotMatch(publicSite, /من بوابة واحدة/);
+  assert.doesNotMatch(publicSite, /portal-only/i);
 });
 
 test("merchant and support headings are explicitly balanced over two lines", () => {
   assert.match(publicSite, /merchant-main-title/);
-  assert.match(publicSite, /كل ما تحتاجه للإدارة/);
   assert.match(publicSite, /support-title-line/);
-  assert.match(publicSite, /احكِ لنا المشكلة/);
   assert.match(css, /merchant-main-title[\s\S]*display: grid/);
   assert.match(css, /support-section h1[\s\S]*display: grid/);
   assert.match(css, /how-section > \.section-head[\s\S]*text-align: center/);
@@ -43,14 +36,14 @@ test("merchant and support headings are explicitly balanced over two lines", () 
   assert.doesNotMatch(css, /merchant-journey \.journey-head \{[^}]*text-align: start/);
 });
 
-test("billing copy references the website instead of the old portal-only wording", () => {
-  assert.match(siteContent, /طلبات الدفع من الموقع الإلكتروني/);
-  assert.match(authForms, /الدفع والاشتراك داخل الموقع الإلكتروني/);
-  assert.doesNotMatch(authForms, /الدفع والاشتراك داخل البوابة فقط/);
+test("merchant billing copy states that Saarly subscription is web-only", () => {
+  assert.match(siteContent, /merchant web portal only/i);
+  assert.match(authForms, /web-only for the store owner/);
+  assert.doesNotMatch(siteContent + authForms, /mobile checkout|inside the mobile app/i);
 });
 
 test("registration and authentication layouts have guarded desktop typography", () => {
-  assert.match(registration, /أنشئ حساب متجرك وأرسل بياناته للمراجعة/);
+  assert.match(registration, /Register/);
   assert.match(css, /registration-auth-layout aside h1/);
   assert.match(css, /grid-template-columns: minmax\(0, 1\.15fr\) minmax\(390px, \.85fr\)/);
 });

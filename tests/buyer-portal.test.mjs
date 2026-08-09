@@ -22,6 +22,13 @@ test("buyer authentication supports sign in, new accounts, OTP, and profile comp
   assert.match(login, /verifyOtp/);
   assert.match(login, /shouldCreateUser: mode === "signup"/);
   assert.match(login, /\/api\/buyer\/onboarding/);
+  assert.match(login, /primaryEmail/);
+  assert.match(login, /recoveryEmail/);
+  assert.match(login, /setReferralCode/);
+  assert.match(login, /cleanReferralCode/);
+  assert.match(login, /type Step = "email" \| "code" \| "profile" \| "accountType"/);
+  assert.match(login, /chooseAccountType\(role: "buyer" \| "merchant"\)/);
+  assert.match(login, /\/api\/merchant\/registration/);
 });
 
 test("buyer portal exposes every main app section", () => {
@@ -43,6 +50,10 @@ test("buyer server accepts buyer and approved merchant buyer-mode accounts only"
 
 test("buyer requests match the mobile input methods and review workflow", () => {
   for (const source of ["manual", "image", "pdf", "voice"]) assert.match(requests, new RegExp(`"${source}"`));
+  assert.match(requests, /type Tab = "offers" \| "requests" \| "rfq"/);
+  assert.match(requests, /useState<Tab>\("offers"\)/);
+  assert.match(requests, /عروض مستلمة/);
+  assert.match(requests, /Received offers/);
   assert.match(requests, /analyze_upload/);
   assert.match(requests, /approve_analyzed_quote/);
   assert.match(requests, /generate_offers/);
@@ -65,13 +76,18 @@ test("buyer upload is authenticated, user-scoped, MIME checked, and size limited
   assert.match(upload, /invoices/);
 });
 
-test("storefront supports search, products, favorites, alerts, location, and direct requests", () => {
-  for (const action of ["search_stores", "load_store_products", "toggle_favorite", "toggle_price_alert", "save_location", "create_manual_quote"]) {
+test("storefront supports search, products, favorites, alerts, location, direct requests, and catalog cart orders", () => {
+  for (const action of ["search_stores", "load_store_products", "toggle_favorite", "toggle_price_alert", "save_location", "create_manual_quote", "preview_catalog_cart", "create_catalog_cart_order"]) {
     assert.match(buyerApi, new RegExp(`action === \\"${action}\\"`));
   }
+  assert.match(buyerApi, /preview_catalog_cart_order/);
+  assert.match(buyerApi, /create_catalog_cart_order/);
   assert.match(stores, /طلب مخصوص|Direct request/);
   assert.match(stores, /useCurrentLocation/);
   assert.match(stores, /buyer-product-actions/);
+  assert.match(stores, /Add to cart/);
+  assert.match(stores, /Shopping cart/);
+  assert.match(stores, /Send purchase order/);
 });
 
 test("buyer cannot see or request from their own store", () => {
@@ -95,7 +111,7 @@ test("accepted orders include contacts, chat, reviews, history, and read-only pa
   assert.match(orders, /cancel_order/);
   assert.match(orders, /delete_order/);
   assert.match(orders, /order_payment_dashboard/);
-  assert.match(orders, /لا توجد وسيلة دفع|no buyer payment/i);
+  assert.match(orders, /Electronic buyer payment inside Saarly is disabled for now|الدفع الإلكتروني داخل سعرلي غير مفعّل حاليًا/);
   assert.match(buyerApi, /buyer_order_payment_dashboard/);
 });
 
@@ -103,7 +119,8 @@ test("buyer support, referrals, preferences, and profile mutations are real serv
   for (const action of ["send_support_message", "transfer_support", "save_preferences", "save_profile", "mark_notification", "mark_all_notifications"]) {
     assert.match(buyerApi, new RegExp(`action === \\"${action}\\"`));
   }
-  assert.match(buyerApi, /my_referral_dashboard/);
+  assert.match(buyerApi, /my_referral_dashboard_for/);
+  assert.match(buyerApi, /p_audience: "buyer"/);
   assert.match(buyerApi, /start_or_get_support_conversation/);
 });
 
@@ -137,6 +154,9 @@ test("buyer price alerts support free-text watches, filters, product opening, an
   assert.match(alerts, /create_text_price_alert/);
   assert.match(alerts, /stop_price_alert/);
   assert.match(alerts, /buyer\/stores\?product=/);
+  assert.match(alerts, /تفاصيل المنتج/);
+  assert.match(alerts, /Product details/);
+  assert.doesNotMatch(alerts, /فتح المنتج|Open product/);
 });
 
 test("browser buyer requests include live voice recording and camera-friendly image capture", () => {
@@ -156,16 +176,17 @@ test("direct store requests support manual, image, PDF, and voice analysis", () 
 
 test("RFQ response acceptance reviews shipping companies, weight tiers, and final cost", () => {
   assert.match(buyerApi, /action === "rfq_shipping_options"/);
-  assert.match(buyerApi, /get_rfq_response_shipping_options/);
+  assert.match(buyerApi, /get_rfq_response_delivery_quote/);
   assert.match(requests, /shippingCompanyId/);
   assert.match(requests, /totalWeightKg/);
   assert.match(requests, /shippingCost/);
 });
 
-test("merchant buyer mode opens the complete buyer portal and keeps a route back to the store", () => {
+test("merchant buyer mode stays inside the merchant workspace and keeps buyer tools", () => {
   const merchantRoute = read("src/app/merchant/[section]/page.tsx");
-  assert.match(content, /href: "\/buyer", ar: "وضع المشتري"/);
-  assert.match(merchantRoute, /section === "buyer".*redirect\("\/buyer"\)/s);
+  assert.match(content, /href: "\/merchant\/buyer", ar: "وضع المشتري"/);
+  assert.doesNotMatch(merchantRoute, /redirect\("\/buyer"\)/);
+  assert.match(merchantRoute, /<MerchantPortal section=\{section\}/);
   assert.match(portal, /href="\/merchant"/);
 });
 
