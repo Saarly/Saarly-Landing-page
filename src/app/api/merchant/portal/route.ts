@@ -144,7 +144,7 @@ async function overviewData(context: MerchantContext) {
     ordersQuery = ordersQuery.in("branch_id", scope);
     branchesQuery = branchesQuery.in("id", scope);
   }
-  const [products, requests, orders, branches, unread, status, report] = await Promise.all([
+  const [products, requests, orders, branches, unread, status, report, growth] = await Promise.all([
     context.service.from("products").select("id", { count: "exact", head: true }).eq("merchant_id", context.merchantId).eq("is_active", true),
     context.userDb.rpc("my_merchant_rfq_requests"),
     ordersQuery,
@@ -152,6 +152,7 @@ async function overviewData(context: MerchantContext) {
     context.service.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", context.user.id).eq("is_read", false),
     accountStatus(context),
     context.userDb.rpc("merchant_report_summary"),
+    context.userDb.rpc("merchant_growth_report"),
   ]);
   const { data: recentNotifications } = await context.service
     .from("notifications")
@@ -177,6 +178,7 @@ async function overviewData(context: MerchantContext) {
     },
     status,
     report: Array.isArray(report.data) ? report.data[0] ?? {} : report.data ?? {},
+    growth: growth.error ? {} : growth.data ?? {},
     recentNotifications: recentNotifications ?? [],
     staleProducts: staleProducts ?? [],
     currencyCode: context.currencyCode,
@@ -217,12 +219,24 @@ async function loadHours(context: MerchantContext) {
 }
 
 async function loadDelivery(context: MerchantContext) {
-  const [settings, options] = await Promise.all([
+  const [settings, options, primaryBranch] = await Promise.all([
     context.service.from("delivery_settings").select("*").eq("merchant_id", context.merchantId).maybeSingle(),
     context.userDb.rpc("get_merchant_shipping_options", { p_merchant_id: context.merchantId }),
+    context.service
+      .from("branches")
+      .select("id,name,is_primary,free_delivery_enabled,free_delivery_minimum")
+      .eq("merchant_id", context.merchantId)
+      .eq("is_primary", true)
+      .maybeSingle(),
   ]);
   if (settings.error) throw new PortalError(settings.error.message, 400);
-  return { settings: settings.data ?? null, shipping: options.error ? {} : options.data ?? {}, currencyCode: context.currencyCode };
+  if (primaryBranch.error) throw new PortalError(primaryBranch.error.message, 400);
+  return {
+    settings: settings.data ?? null,
+    shipping: options.error ? {} : options.data ?? {},
+    primaryBranch: primaryBranch.data ?? null,
+    currencyCode: context.currencyCode,
+  };
 }
 
 async function loadReports(context: MerchantContext) {
@@ -255,26 +269,48 @@ async function loadReports(context: MerchantContext) {
 async function loadReferrals(context: MerchantContext) {
   const [dashboard, ads] = await Promise.all([
     context.userDb.rpc("my_referral_dashboard_for", { p_audience: "merchant" }),
-    context.service.from("ads_banners").select("id,title_ar,title_en,image_url,target_url,placement,is_active,is_ongoing,starts_at,ends_at").eq("placement", "merchant_referrals_top").eq("is_active", true).order("created_at", { ascending: false }).limit(10),
+    context.service.from("ads_banners").select("id,image_url,target_url,placement,is_active,is_ongoing,starts_at,ends_at").eq("placement", "merchant_referrals_top").eq("is_active", true).order("created_at", { ascending: false }).limit(10),
   ]);
   if (dashboard.error) throw new PortalError(dashboard.error.message, 400);
   return { dashboard: dashboard.data ?? {}, ads: ads.data ?? [] };
 }
 
-async function loadSupport(context: MerchantContext) {
-  const start = await context.userDb.rpc("start_or_get_support_conversation", {
-    p_title: context.profile.preferred_language === "en" ? "Merchant portal support" : "دعم بوابة المتجر",
-    p_locale: context.profile.preferred_language === "en" ? "en" : "ar",
-  });
-  if (start.error) throw new PortalError(start.error.message, 400);
-  const conversationId = String(start.data ?? "");
-  const [conversation, messages] = await Promise.all([
-    context.service.from("chat_conversations").select("*").eq("id", conversationId).eq("user_id", context.user.id).maybeSingle(),
-    context.service.from("chat_messages").select("id,conversation_id,sender_type,sender_user_id,body,metadata,created_at").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(300),
+async function supportConversationBundle(context: MerchantContext, requestedId?: string) {
+  let conversationId = uuid(requestedId);
+  if (conversationId) {
+    const ownership = await context.service.from("chat_conversations").select("id").eq("id", conversationId).eq("user_id", context.user.id).maybeSingle();
+    if (ownership.error) throw new PortalError(ownership.error.message, 400);
+    if (!ownership.data?.id) throw new PortalError("support_conversation_not_found", 404);
+  } else {
+    const start = await context.userDb.rpc("start_or_get_support_conversation", {
+      p_title: context.profile.preferred_language === "en" ? "Merchant portal support" : "دعم بوابة المتجر",
+      p_locale: context.profile.preferred_language === "en" ? "en" : "ar",
+    });
+    if (start.error) throw new PortalError(start.error.message, 400);
+    conversationId = value(start.data);
+  }
+  const [conversation, messages, conversations] = await Promise.all([
+    context.service.from("chat_conversations")
+      .select("id,status,title,transferred_at,last_message_at,last_user_message_at,last_support_message_at,user_last_read_at,created_at,updated_at,closed_at,closed_reason,locale")
+      .eq("id", conversationId).eq("user_id", context.user.id).maybeSingle(),
+    context.service.from("chat_messages")
+      .select("id,conversation_id,sender_type,sender_user_id,body,metadata,created_at")
+      .eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(400),
+    context.service.from("chat_conversations")
+      .select("id,status,title,transferred_at,last_message_at,last_user_message_at,last_support_message_at,user_last_read_at,created_at,updated_at,closed_at,closed_reason,locale,support_conversation_ratings(stars,sentiment,comment,created_at,updated_at)")
+      .eq("user_id", context.user.id).order("updated_at", { ascending: false }).limit(100),
   ]);
-  if (conversation.error || messages.error) throw new PortalError(conversation.error?.message || messages.error?.message || "support_load_failed", 400);
-  await context.userDb.rpc("mark_support_conversation_read", { p_conversation_id: conversationId });
-  return { conversation: conversation.data ?? {}, messages: messages.data ?? [] };
+  const error = conversation.error || messages.error || conversations.error;
+  if (error) throw new PortalError(error.message, 400);
+  const mark = await context.userDb.rpc("mark_support_conversation_read", { p_conversation_id: conversationId });
+  if (mark.error) throw new PortalError(mark.error.message, 400);
+  const current = (conversation.data ?? {}) as Row;
+  const currentWithRating = ((conversations.data ?? []) as Row[]).find((item) => value(item.id) === conversationId) ?? current;
+  return { conversation: currentWithRating, messages: messages.data ?? [], conversations: conversations.data ?? [] };
+}
+
+async function loadSupport(context: MerchantContext) {
+  return supportConversationBundle(context);
 }
 
 async function loadReviews(context: MerchantContext) {
@@ -295,7 +331,19 @@ function paymentProviderReady(setting: Row) {
 }
 
 async function loadSubscriptions(context: MerchantContext) {
-  const [status, flagsResult, plansResult, methodsResult, requestsResult, transactionsResult, subscriptionsResult, settingsResult] = await Promise.all([
+  const [
+    status,
+    flagsResult,
+    plansResult,
+    discountsResult,
+    discountPlansResult,
+    discountMerchantsResult,
+    methodsResult,
+    requestsResult,
+    transactionsResult,
+    subscriptionsResult,
+    settingsResult,
+  ] = await Promise.all([
     accountStatus(context),
     context.service
       .from("feature_flags")
@@ -313,6 +361,19 @@ async function loadSubscriptions(context: MerchantContext) {
       .select("id,plan_code,name_ar,name_en,description_ar,description_en,monthly_price,old_price,currency,duration_days,billing_period_months,grace_months,features,features_ar,features_en,is_active,sort_order")
       .eq("is_active", true)
       .order("sort_order", { ascending: true }),
+    context.service
+      .from("subscription_discounts")
+      .select("id,code,name_ar,name_en,description_ar,description_en,discount_percent,discount_amount,currency,applies_to,starts_at,ends_at,usage_limit,usage_count,is_active,priority,created_at")
+      .eq("is_active", true)
+      .limit(200),
+    context.service
+      .from("subscription_discount_plans")
+      .select("discount_id,plan_id")
+      .limit(1000),
+    context.service
+      .from("subscription_discount_merchants")
+      .select("discount_id,merchant_id,max_uses,used_count")
+      .limit(1000),
     context.service
       .from("manual_payment_methods")
       .select("id,code,name_ar,name_en,provider,account_label,account_number,account_holder_name,instructions_ar,instructions_en,allowed_mime_types,max_file_size_bytes,is_active,sort_order")
@@ -342,10 +403,100 @@ async function loadSubscriptions(context: MerchantContext) {
       .select("provider,is_enabled,is_connected,config_status,gateway_environment,display_name_ar,display_name_en,supported_currencies,supported_methods,metadata,secret_reference")
       .order("provider", { ascending: true }),
   ]);
-  const error = flagsResult.error || plansResult.error || methodsResult.error || requestsResult.error || transactionsResult.error || subscriptionsResult.error || settingsResult.error;
+  const error = flagsResult.error
+    || plansResult.error
+    || discountsResult.error
+    || discountPlansResult.error
+    || discountMerchantsResult.error
+    || methodsResult.error
+    || requestsResult.error
+    || transactionsResult.error
+    || subscriptionsResult.error
+    || settingsResult.error;
   if (error) throw new PortalError(error.message || "subscriptions_load_failed", 400);
   const flags = (flagsResult.data ?? []) as Row[];
-  const plans = (plansResult.data ?? []) as Row[];
+  const rawPlans = (plansResult.data ?? []) as Row[];
+  const discounts = (discountsResult.data ?? []) as Row[];
+  const discountPlanRows = (discountPlansResult.data ?? []) as Row[];
+  const discountMerchantRows = (discountMerchantsResult.data ?? []) as Row[];
+  const subscriptionRows = (subscriptionsResult.data ?? []) as Row[];
+  const isRenewal = subscriptionRows.length > 0;
+  const now = Date.now();
+
+  const plansByDiscount = new Map<string, Set<string>>();
+  for (const link of discountPlanRows) {
+    const discountId = value(link.discount_id);
+    const planId = value(link.plan_id);
+    if (!discountId || !planId) continue;
+    const set = plansByDiscount.get(discountId) ?? new Set<string>();
+    set.add(planId);
+    plansByDiscount.set(discountId, set);
+  }
+  const merchantsByDiscount = new Map<string, Set<string>>();
+  for (const link of discountMerchantRows) {
+    const discountId = value(link.discount_id);
+    const merchantId = value(link.merchant_id);
+    if (!discountId || !merchantId) continue;
+    const set = merchantsByDiscount.get(discountId) ?? new Set<string>();
+    set.add(merchantId);
+    merchantsByDiscount.set(discountId, set);
+  }
+
+  function discountApplies(discount: Row, planId: string) {
+    const id = value(discount.id);
+    if (!id || !Boolean(discount.is_active)) return false;
+    const startsAt = Date.parse(value(discount.starts_at));
+    const endsAt = Date.parse(value(discount.ends_at));
+    if (Number.isFinite(startsAt) && startsAt > now) return false;
+    if (Number.isFinite(endsAt) && endsAt <= now) return false;
+    const usageLimit = discount.usage_limit == null ? null : finiteNumber(discount.usage_limit, 0);
+    if (usageLimit != null && finiteNumber(discount.usage_count, 0) >= usageLimit) return false;
+    const appliesTo = value(discount.applies_to) || "both";
+    if (appliesTo === "first_subscription" && isRenewal) return false;
+    if (appliesTo === "renewal" && !isRenewal) return false;
+    const planTargets = plansByDiscount.get(id);
+    if (planTargets?.size && !planTargets.has(planId)) return false;
+    const merchantTargets = merchantsByDiscount.get(id);
+    if (merchantTargets?.size && !merchantTargets.has(context.merchantId)) return false;
+    return true;
+  }
+
+  function bestDiscount(planId: string) {
+    return discounts
+      .filter((discount) => discountApplies(discount, planId))
+      .sort((a, b) => {
+        const priority = finiteNumber(b.priority, 0) - finiteNumber(a.priority, 0);
+        if (priority) return priority;
+        const percent = finiteNumber(b.discount_percent, 0) - finiteNumber(a.discount_percent, 0);
+        if (percent) return percent;
+        const amount = finiteNumber(b.discount_amount, 0) - finiteNumber(a.discount_amount, 0);
+        if (amount) return amount;
+        return Date.parse(value(a.created_at)) - Date.parse(value(b.created_at));
+      })[0] ?? null;
+  }
+
+  const plans = rawPlans.map((plan) => {
+    const originalPrice = Math.max(0, finiteNumber(plan.monthly_price, 0));
+    const discount = bestDiscount(value(plan.id));
+    const percent = Math.min(100, Math.max(0, finiteNumber(discount?.discount_percent, 0)));
+    const fixed = Math.max(0, finiteNumber(discount?.discount_amount, 0));
+    const discountAmount = discount
+      ? Math.min(originalPrice, percent > 0 ? Math.round(originalPrice * percent) / 100 : fixed)
+      : 0;
+    return {
+      ...plan,
+      effective_price: Math.max(0, originalPrice - discountAmount),
+      discount_id: discount?.id ?? null,
+      discount_name_ar: discount?.name_ar ?? null,
+      discount_name_en: discount?.name_en ?? null,
+      discount_description_ar: discount?.description_ar ?? null,
+      discount_description_en: discount?.description_en ?? null,
+      discount_percent: percent,
+      discount_amount: discountAmount,
+      discount_applies_to: discount?.applies_to ?? null,
+      is_renewal_price: isRenewal,
+    };
+  });
   const planMap = new Map(plans.map((plan) => [value(plan.id), plan]));
   const manualRequests = await Promise.all(((requestsResult.data ?? []) as Row[]).map(async (request) => {
     const plan = planMap.get(value(request.plan_id)) ?? objectValue(request.plan_snapshot);
@@ -364,7 +515,7 @@ async function loadSubscriptions(context: MerchantContext) {
       plan_name_en: plan?.name_en ?? null,
     };
   });
-  const subscriptions = ((subscriptionsResult.data ?? []) as Row[]).map((subscription) => {
+  const subscriptions = subscriptionRows.map((subscription) => {
     const plan = planMap.get(value(subscription.plan_id));
     return {
       ...subscription,
@@ -483,7 +634,7 @@ async function loadSection(context: MerchantContext, section: string) {
     ]);
     const { data: settingsAds } = await context.service
       .from("ads_banners")
-      .select("id,title_ar,title_en,image_url,target_url,placement,is_active,is_ongoing,starts_at,ends_at")
+      .select("id,image_url,target_url,placement,is_active,is_ongoing,starts_at,ends_at")
       .eq("placement", "merchant_settings_top")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -503,14 +654,23 @@ async function loadSection(context: MerchantContext, section: string) {
     return { ...common, section, data: { products: products.data ?? [], categories: categories.data ?? [], branches: branchRows, availability: availabilityRows, currencyCode: context.currencyCode } };
   }
   if (section === "requests") {
-    const { data, error } = await context.userDb.rpc("my_merchant_rfq_requests");
+    const [requestResult, branchResult, productResult, availabilityResult] = await Promise.all([
+      context.userDb.rpc("my_merchant_rfq_requests"),
+      context.service.from("branches").select("id,name,approval_status").eq("merchant_id", context.merchantId).eq("approval_status", "approved").order("name"),
+      context.service.from("products").select("id,free_name,price,unit,quantity,brand,size,color,is_active,is_available").eq("merchant_id", context.merchantId).eq("is_active", true).order("free_name").limit(1000),
+      context.service.from("branch_product_availability").select("branch_id,product_id,is_available").eq("merchant_id", context.merchantId),
+    ]);
+    const error = requestResult.error || branchResult.error || productResult.error || availabilityResult.error;
     if (error) throw new PortalError(error.message, 400);
-    return { ...common, section, data: { requests: data ?? [] } };
+    const scope = allowedBranchIds(context);
+    const branchRows = scope ? ((branchResult.data ?? []) as Row[]).filter((item) => scope.has(String(item.id ?? ""))) : (branchResult.data ?? []) as Row[];
+    const availabilityRows = scope ? ((availabilityResult.data ?? []) as Row[]).filter((item) => scope.has(String(item.branch_id ?? ""))) : (availabilityResult.data ?? []) as Row[];
+    return { ...common, section, data: { requests: requestResult.data ?? [], branches: branchRows, products: productResult.data ?? [], availability: availabilityRows, currencyCode: context.currencyCode } };
   }
   if (section === "orders") {
     const { data, error } = await context.service
       .from("order_merchant_fulfillments")
-      .select("id, order_id, branch_id, status, subtotal_snapshot, confirmation_deadline, confirmed_at, merchant_cancel_reason, merchant_cancel_details, buyer_decision, buyer_decided_at, created_at, updated_at, items:order_fulfillment_items(id, requested_name_snapshot, matched_name_snapshot, quantity_snapshot, unit_snapshot, unit_price_snapshot, line_total_snapshot)")
+      .select("id, order_id, merchant_id, branch_id, status, subtotal_snapshot, confirmation_deadline, confirmed_at, merchant_cancel_reason, merchant_cancel_details, buyer_decision, buyer_decided_at, delivery_available_snapshot, delivery_pricing_method_snapshot, delivery_pricing_table_snapshot, created_at, updated_at, order:orders(id,offer_id,status,accepted_at,confirmation_deadline), items:order_fulfillment_items(id, requested_name_snapshot, matched_name_snapshot, quantity_snapshot, unit_snapshot, unit_price_snapshot, line_total_snapshot)")
       .eq("merchant_id", context.merchantId)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -523,19 +683,42 @@ async function loadSection(context: MerchantContext, section: string) {
       const buyerResult = await context.service.rpc("merchant_order_buyer_cards", { p_order_ids: orderIds });
       if (!buyerResult.error && Array.isArray(buyerResult.data)) buyers = buyerResult.data as Row[];
     }
-    return { ...common, section, data: { orders: scopedOrders, buyers, currencyCode: context.currencyCode } };
+    const offerIds = [...new Set(scopedOrders.map((item: Row) => value(objectValue(item.order).offer_id)).filter(Boolean))];
+    const deliveryTypeByOffer = new Map<string, string>();
+    if (offerIds.length) {
+      const offers = await context.service.from("offers").select("id,quote_request_id").in("id", offerIds);
+      if (!offers.error && (offers.data ?? []).length) {
+        const quoteIds = [...new Set(((offers.data ?? []) as Row[]).map((item) => value(item.quote_request_id)).filter(Boolean))];
+        if (quoteIds.length) {
+          const quotes = await context.service.from("quote_requests").select("id,delivery_type").in("id", quoteIds);
+          if (!quotes.error) {
+            const quoteTypes = new Map(((quotes.data ?? []) as Row[]).map((item) => [value(item.id), value(item.delivery_type, "broadcast")]));
+            for (const offer of (offers.data ?? []) as Row[]) deliveryTypeByOffer.set(value(offer.id), quoteTypes.get(value(offer.quote_request_id)) ?? "broadcast");
+          }
+        }
+      }
+    }
+    const enrichedOrders = scopedOrders.map((item: Row) => ({ ...item, delivery_type: deliveryTypeByOffer.get(value(objectValue(item.order).offer_id)) ?? "broadcast" }));
+    return { ...common, section, data: { orders: enrichedOrders, buyers, currencyCode: context.currencyCode } };
   }
   if (section === "branches") {
-    const [branches, cities, documents] = await Promise.all([
+    const [branches, cities, documents, products, availability, branchSales] = await Promise.all([
       context.service.from("branches").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }),
       context.service.from("cities").select("id, name_ar, name_en, governorate_ar, governorate_en, country_ar, country_en").eq("is_active", true).order("display_order").limit(1000),
       context.service.from("merchant_documents").select("id, branch_id, manager_name, kind, status, rejection_reason, created_at").eq("merchant_id", context.merchantId).not("branch_id", "is", null).is("superseded_by", null),
+      context.service.from("products").select("id,free_name,is_active,is_available,quantity,unit").eq("merchant_id", context.merchantId).eq("is_active", true).order("free_name").limit(1000),
+      context.service.from("branch_product_availability").select("branch_id,product_id,is_available").eq("merchant_id", context.merchantId),
+      context.userDb.rpc("merchant_branch_sales_summary"),
     ]);
     const scope = allowedBranchIds(context);
     const scopedBranchRows = scope ? ((branches.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.id))) : (branches.data ?? []) as Row[];
     const branchRows = await Promise.all(scopedBranchRows.map(async (item) => ({ ...item, front_signed_url: await signedStorageUrl(context, "storefront-photos", item.front_image_url, 6 * 60 * 60) })));
     const documentRows = scope ? ((documents.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.branch_id))) : documents.data ?? [];
-    return { ...common, section, data: { branches: branchRows, cities: cities.data ?? [], documents: documentRows } };
+    const availabilityRows = scope ? ((availability.data ?? []) as Row[]).filter((item: Row) => scope.has(String(item.branch_id))) : availability.data ?? [];
+    const allSalesRows = branchSales.error ? [] : (branchSales.data ?? []) as Row[];
+    const branchSalesRows = scope ? allSalesRows.filter((item: Row) => Boolean(item.branch_id) && scope.has(String(item.branch_id))) : allSalesRows.filter((item: Row) => Boolean(item.branch_id));
+    const unassignedSales = scope ? null : allSalesRows.find((item: Row) => !item.branch_id) ?? null;
+    return { ...common, section, data: { branches: branchRows, cities: cities.data ?? [], documents: documentRows, products: products.data ?? [], availability: availabilityRows, branchSales: branchSalesRows, unassignedSales } };
   }
   if (section === "employees") {
     const { data, error } = await context.userDb.rpc("my_merchant_staff_members");
@@ -550,7 +733,7 @@ async function loadSection(context: MerchantContext, section: string) {
   if (section === "reviews") return { ...common, section, data: await loadReviews(context) };
   if (section === "referrals") return { ...common, section, data: await loadReferrals(context) };
   if (section === "support") return { ...common, section, data: await loadSupport(context) };
-  if (section === "buyer") return { ...common, section, data: await loadBuyerMode(context) };
+  if (section === "buyer") throw new PortalError("merchant_buyer_mode_disabled", 404);
   if (section === "notifications") {
     const { data, error } = await context.service
       .from("notifications")
@@ -568,6 +751,7 @@ export async function GET(request: NextRequest) {
   try {
     const context = await requireMerchant(request);
     const section = value(request.nextUrl.searchParams.get("section")) || "overview";
+    if (section === "buyer") throw new PortalError("merchant_buyer_mode_disabled", 404);
     if (section === "employees") ownerOnly(context);
     if (section === "store") ownerOnly(context);
     if (section === "subscriptions") ownerOnly(context);
@@ -583,6 +767,9 @@ export async function POST(request: NextRequest) {
     const context = await requireMerchant(request);
     const body = (await request.json()) as Row;
     const action = value(body.action);
+    if (["search_buyer_merchants", "load_buyer_products", "save_buyer_location", "toggle_buyer_favorite", "toggle_buyer_price_alert", "create_buyer_direct_request"].includes(action)) {
+      throw new PortalError("merchant_buyer_mode_disabled", 404);
+    }
 
     if (action === "save_store") {
       ownerOnly(context);
@@ -640,6 +827,12 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       };
       if (payload.free_name.length < 2) throw new PortalError("product_name_required");
+      if (!payload.category_id) throw new PortalError("product_category_required");
+      if (!payload.unit.trim()) throw new PortalError("product_unit_required");
+      if (payload.price <= 0) throw new PortalError("product_price_must_be_positive");
+      if (payload.quantity < 0) throw new PortalError("product_quantity_invalid");
+      if (payload.image_urls.length === 0) throw new PortalError("product_image_required");
+      if (payload.delivery_pricing_method === "weight" && (!payload.shipping_weight_kg || payload.shipping_weight_kg <= 0)) throw new PortalError("product_shipping_weight_required");
       let before: Row | null = null;
       let result;
       if (productId) {
@@ -693,16 +886,24 @@ export async function POST(request: NextRequest) {
 
     if (action === "save_branch") {
       ownerOnly(context);
+      const branchId = uuid(body.id) || null;
+      const branchFrontPath = normalizeStoragePath("storefront-photos", body.frontImageUrl) || null;
+      if (!value(body.name)) throw new PortalError("branch_name_required", 400);
+      if (!uuid(body.cityId)) throw new PortalError("branch_city_required", 400);
+      if (!value(body.managerName)) throw new PortalError("branch_manager_name_required", 400);
+      if (!value(body.managerMobile)) throw new PortalError("branch_manager_mobile_required", 400);
+      if (!branchFrontPath) throw new PortalError("branch_front_image_required", 400);
+      if (!branchId && (!normalizeStoragePath("merchant-ids", body.managerIdFrontPath) || !normalizeStoragePath("merchant-ids", body.managerIdBackPath))) throw new PortalError("branch_manager_id_required", 400);
       const result = await context.userDb.rpc("save_my_merchant_branch_web", {
         p_payload: {
-          id: uuid(body.id) || null,
+          id: branchId,
           name: value(body.name),
           city_id: uuid(body.cityId),
           latitude: finiteNumber(body.latitude),
           longitude: finiteNumber(body.longitude),
           manager_name: value(body.managerName),
           manager_mobile: value(body.managerMobile),
-          front_image_url: normalizeStoragePath("storefront-photos", body.frontImageUrl) || null,
+          front_image_url: branchFrontPath,
           manager_id_front_path: normalizeStoragePath("merchant-ids", body.managerIdFrontPath) || null,
           manager_id_back_path: normalizeStoragePath("merchant-ids", body.managerIdBackPath) || null,
           uses_parent_commercial_register: booleanValue(body.usesParentCommercialRegister, true),
@@ -712,6 +913,48 @@ export async function POST(request: NextRequest) {
           craftsman_available: booleanValue(body.craftsmanAvailable),
         },
       });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      const savedBranch = objectValue(result.data);
+      const savedBranchId = branchId || uuid(savedBranch.id) || uuid(result.data);
+      if (savedBranchId) {
+        const freeDeliveryEnabled = booleanValue(body.freeDeliveryEnabled);
+        const freeDeliveryMinimum = freeDeliveryEnabled ? finiteNumber(body.freeDeliveryMinimum) : null;
+        if (freeDeliveryEnabled && (!freeDeliveryMinimum || freeDeliveryMinimum <= 0)) throw new PortalError("free_delivery_minimum_required", 400);
+        const freeDelivery = await context.userDb.rpc("set_my_branch_free_delivery", {
+          p_branch_id: savedBranchId,
+          p_enabled: freeDeliveryEnabled,
+          p_minimum: freeDeliveryMinimum,
+        });
+        if (freeDelivery.error) throw new PortalError(freeDelivery.error.message, 400);
+      }
+      return NextResponse.json({ data: result.data });
+    }
+
+    if (action === "set_branch_craftsman") {
+      if (!canManage(context, "branches")) throw new PortalError("branch_permission_required", 403);
+      const branchId = uuid(body.branchId);
+      if (!branchId) throw new PortalError("branch_not_found", 404);
+      assertBranchAccess(context, branchId);
+      const before = await context.service.from("branches").select("id,craftsman_available").eq("merchant_id", context.merchantId).eq("id", branchId).maybeSingle();
+      if (before.error) throw new PortalError(before.error.message, 400);
+      if (!before.data?.id) throw new PortalError("branch_not_found", 404);
+      const result = await context.service.from("branches").update({ craftsman_available: booleanValue(body.available), updated_at: new Date().toISOString() }).eq("merchant_id", context.merchantId).eq("id", branchId).select("id,craftsman_available").single();
+      if (result.error) throw new PortalError(result.error.message, 400);
+      await audit(context, "portal_set_branch_craftsman_availability", "branches", branchId, before.data as Row, result.data as Row);
+      return NextResponse.json({ data: result.data });
+    }
+
+    if (action === "set_branch_free_delivery") {
+      ownerOnly(context);
+      const branchId = uuid(body.branchId);
+      if (!branchId) throw new PortalError("branch_not_found", 404);
+      const enabled = booleanValue(body.enabled);
+      const minimum = enabled ? finiteNumber(body.minimum) : null;
+      if (enabled && (!minimum || minimum <= 0)) throw new PortalError("free_delivery_minimum_required", 400);
+      const branch = await context.service.from("branches").select("id").eq("merchant_id", context.merchantId).eq("id", branchId).maybeSingle();
+      if (branch.error) throw new PortalError(branch.error.message, 400);
+      if (!branch.data?.id) throw new PortalError("branch_not_found", 404);
+      const result = await context.userDb.rpc("set_my_branch_free_delivery", { p_branch_id: branchId, p_enabled: enabled, p_minimum: minimum });
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: result.data });
     }
@@ -799,9 +1042,15 @@ export async function POST(request: NextRequest) {
       if ((status as Row).can_receive_new_work !== true && (status as Row).can_receive_orders !== true) {
         throw new PortalError(value((status as Row).stop_reason) || "merchant_not_receiving_requests", 409);
       }
+      const branchId = uuid(body.branchId);
+      if (!branchId) throw new PortalError("rfq_response_branch_required", 400);
+      assertBranchAccess(context, branchId);
+      const branch = await context.service.from("branches").select("id,approval_status").eq("id", branchId).eq("merchant_id", context.merchantId).maybeSingle();
+      if (branch.error || !branch.data?.id || branch.data.approval_status !== "approved") throw new PortalError("rfq_response_branch_not_available", 400);
       const result = await context.userDb.rpc("submit_rfq_response", {
         p_rfq_request_id: uuid(body.requestId),
         p_item_responses: Array.isArray(body.itemResponses) ? body.itemResponses : [],
+        p_branch_id: branchId,
       });
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: result.data });
@@ -824,6 +1073,32 @@ export async function POST(request: NextRequest) {
       const result = await context.service.from("merchant_working_hours").upsert(rowsToSave, { onConflict: "merchant_id,day_of_week" }).select("id,day_of_week,is_open,opens_at,closes_at");
       if (result.error) throw new PortalError(result.error.message, 400);
       await audit(context, "portal_save_working_hours", "merchant_working_hours", context.merchantId, null, { days: rowsToSave.length });
+      return NextResponse.json({ data: result.data });
+    }
+
+    if (action === "save_primary_branch_free_delivery") {
+      if (!canManage(context, "delivery")) throw new PortalError("delivery_permission_required", 403);
+      const branchId = uuid(body.branchId);
+      if (!branchId) throw new PortalError("primary_branch_not_found", 404);
+      const branch = await context.service
+        .from("branches")
+        .select("id,is_primary")
+        .eq("id", branchId)
+        .eq("merchant_id", context.merchantId)
+        .eq("is_primary", true)
+        .maybeSingle();
+      if (branch.error) throw new PortalError(branch.error.message, 400);
+      if (!branch.data?.id) throw new PortalError("primary_branch_not_found", 404);
+      assertBranchAccess(context, branchId);
+      const enabled = booleanValue(body.enabled);
+      const minimum = enabled ? finiteNumber(body.minimum) : null;
+      if (enabled && (!minimum || minimum <= 0)) throw new PortalError("free_delivery_minimum_required", 400);
+      const result = await context.userDb.rpc("set_my_branch_free_delivery", {
+        p_branch_id: branchId,
+        p_enabled: enabled,
+        p_minimum: minimum,
+      });
+      if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: result.data });
     }
 
@@ -866,7 +1141,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === "save_branch_availability") {
-      if (!canManage(context, "products")) throw new PortalError("product_permission_required", 403);
+      if (!canManage(context, "products") && !canManage(context, "branches")) throw new PortalError("product_or_branch_permission_required", 403);
       const branchId = uuid(body.branchId);
       assertBranchAccess(context, branchId);
       const unavailable = stringList(body.unavailableProductIds).map(uuid).filter(Boolean);
@@ -875,21 +1150,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: true });
     }
 
+    if (action === "create_support_conversation") {
+      if (!canManage(context, "support")) throw new PortalError("support_permission_required", 403);
+      const title = value(body.title).slice(0, 160);
+      if (title.length < 15) throw new PortalError("support_title_too_short");
+      const result = await context.userDb.rpc("create_support_conversation", { p_title: title, p_locale: body.locale === "en" ? "en" : "ar" });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: await supportConversationBundle(context, value(result.data)) });
+    }
+
+    if (action === "load_support_conversation") {
+      if (!canManage(context, "support")) throw new PortalError("support_permission_required", 403);
+      return NextResponse.json({ data: await supportConversationBundle(context, uuid(body.conversationId)) });
+    }
+
     if (action === "send_support_message") {
       if (!canManage(context, "support")) throw new PortalError("support_permission_required", 403);
       const conversationId = uuid(body.conversationId);
       const message = value(body.message).slice(0, 4000);
       if (!conversationId || !message) throw new PortalError("message_required");
-      const result = await context.userDb.rpc("send_support_message", { p_conversation_id: conversationId, p_body: message });
-      if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data });
+      const ownership = await context.service.from("chat_conversations").select("id,status").eq("id", conversationId).eq("user_id", context.user.id).maybeSingle();
+      if (!ownership.data?.id) throw new PortalError("support_conversation_not_found", 404);
+      let resultData: unknown;
+      if (value(ownership.data.status) === "transferred") {
+        const result = await context.userDb.rpc("send_support_message", { p_conversation_id: conversationId, p_body: message });
+        if (result.error) throw new PortalError(result.error.message, 400);
+        resultData = result.data;
+      } else {
+        const result = await context.userDb.functions.invoke("support-chatbot", {
+          body: { conversation_id: conversationId, message, locale: body.locale === "en" ? "en" : "ar" },
+        });
+        if (result.error) throw new PortalError(result.error.message, 400);
+        resultData = result.data;
+      }
+      return NextResponse.json({ data: { result: resultData, ...(await supportConversationBundle(context, conversationId)) } });
     }
 
     if (action === "transfer_support") {
       if (!canManage(context, "support")) throw new PortalError("support_permission_required", 403);
-      const result = await context.userDb.rpc("transfer_support_conversation", { p_conversation_id: uuid(body.conversationId), p_reason: value(body.reason) || "requested_by_merchant_portal" });
+      const conversationId = uuid(body.conversationId);
+      const result = await context.userDb.rpc("transfer_support_conversation", { p_conversation_id: conversationId, p_reason: value(body.reason) || "requested_by_merchant_portal" });
       if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data });
+      return NextResponse.json({ data: await supportConversationBundle(context, conversationId) });
+    }
+
+    if (action === "close_support_conversation") {
+      if (!canManage(context, "support")) throw new PortalError("support_permission_required", 403);
+      const conversationId = uuid(body.conversationId);
+      const result = await context.userDb.rpc("close_my_support_conversation", { p_conversation_id: conversationId });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: await supportConversationBundle(context, conversationId) });
+    }
+
+    if (action === "rate_support_conversation") {
+      if (!canManage(context, "support")) throw new PortalError("support_permission_required", 403);
+      const conversationId = uuid(body.conversationId);
+      const stars = Math.max(1, Math.min(5, Math.round(finiteNumber(body.stars, 5))));
+      const sentiment = body.sentiment === "negative" ? "negative" : "positive";
+      const comment = value(body.comment).slice(0, 1000) || null;
+      const result = await context.userDb.rpc("submit_my_support_conversation_rating", { p_conversation_id: conversationId, p_stars: stars, p_sentiment: sentiment, p_comment: comment });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: await supportConversationBundle(context, conversationId) });
     }
 
     if (action === "open_order_chat") {

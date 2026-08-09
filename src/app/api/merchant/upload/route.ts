@@ -71,8 +71,23 @@ export async function POST(request: NextRequest) {
       if (!context.isOwner) throw new PortalError("merchant_owner_required", 403);
       bucket = "merchant-payment-proofs";
       pathPrefix = `${context.merchantId}/portal-subscriptions`;
-      allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
-      maxBytes = PAYMENT_PROOF_MAX_BYTES;
+      const methodId = String(form.get("manualPaymentMethodId") ?? "").trim();
+      const method = methodId
+        ? await context.service
+            .from("manual_payment_methods")
+            .select("id,allowed_mime_types,max_file_size_bytes,is_active")
+            .eq("id", methodId)
+            .eq("is_active", true)
+            .maybeSingle()
+        : null;
+      if (method?.error) throw new PortalError(method.error.message, 400);
+      if (methodId && !method?.data?.id) throw new PortalError("manual_payment_method_required", 400);
+      const configuredTypes = Array.isArray(method?.data?.allowed_mime_types)
+        ? method.data.allowed_mime_types.map((item: unknown) => String(item ?? "").trim()).filter(Boolean)
+        : [];
+      allowed = new Set(configuredTypes.length ? configuredTypes : ["image/jpeg", "image/png", "application/pdf"]);
+      const configuredMax = Number(method?.data?.max_file_size_bytes ?? 0);
+      maxBytes = Number.isFinite(configuredMax) && configuredMax > 0 ? Math.min(configuredMax, PAYMENT_PROOF_MAX_BYTES) : 5 * 1024 * 1024;
     } else {
       throw new PortalError("unsupported_upload_kind");
     }

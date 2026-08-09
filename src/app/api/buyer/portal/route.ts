@@ -67,7 +67,7 @@ function locationMatchesAd(ad: Row, location: Row) {
 async function loadAds(context: BuyerContext, placement: string, location: Row) {
   const { data, error } = await context.service
     .from("ads_banners")
-    .select("id,title_ar,title_en,image_url,target_url,placement,sort_order,target_country_ar,target_governorate_ar,target_city_ar,starts_at,ends_at,is_active,is_ongoing")
+    .select("id,image_url,target_url,placement,sort_order,target_country_ar,target_governorate_ar,target_city_ar,starts_at,ends_at,is_active,is_ongoing")
     .eq("placement", placement)
     .eq("is_active", true)
     .order("sort_order", { ascending: true })
@@ -171,21 +171,43 @@ async function loadStorefront(context: BuyerContext) {
   };
 }
 
-async function loadSupport(context: BuyerContext) {
-  const start = await context.userDb.rpc("start_or_get_support_conversation", {
-    p_title: context.profile.preferred_language === "en" ? "Buyer web support" : "دعم المشتري من الموقع",
-    p_locale: context.profile.preferred_language === "en" ? "en" : "ar",
-  });
-  if (start.error) throw new PortalError(start.error.message, 400);
-  const conversationId = value(start.data);
-  const [conversation, messages] = await Promise.all([
-    context.service.from("chat_conversations").select("*").eq("id", conversationId).eq("user_id", context.user.id).maybeSingle(),
-    context.service.from("chat_messages").select("id,conversation_id,sender_type,sender_user_id,body,metadata,created_at").eq("conversation_id", conversationId).order("created_at").limit(400),
+async function supportConversationBundle(context: BuyerContext, requestedId?: string) {
+  let conversationId = uuid(requestedId);
+  if (conversationId) {
+    const ownership = await context.service.from("chat_conversations").select("id").eq("id", conversationId).eq("user_id", context.user.id).maybeSingle();
+    if (ownership.error) throw new PortalError(ownership.error.message, 400);
+    if (!ownership.data?.id) throw new PortalError("support_conversation_not_found", 404);
+  } else {
+    const start = await context.userDb.rpc("start_or_get_support_conversation", {
+      p_title: context.profile.preferred_language === "en" ? "Buyer web support" : "دعم المشتري من الموقع",
+      p_locale: context.profile.preferred_language === "en" ? "en" : "ar",
+    });
+    if (start.error) throw new PortalError(start.error.message, 400);
+    conversationId = value(start.data);
+  }
+
+  const [conversation, messages, conversations] = await Promise.all([
+    context.service.from("chat_conversations")
+      .select("id,status,title,transferred_at,last_message_at,last_user_message_at,last_support_message_at,user_last_read_at,created_at,updated_at,closed_at,closed_reason,locale")
+      .eq("id", conversationId).eq("user_id", context.user.id).maybeSingle(),
+    context.service.from("chat_messages")
+      .select("id,conversation_id,sender_type,sender_user_id,body,metadata,created_at")
+      .eq("conversation_id", conversationId).order("created_at").limit(400),
+    context.service.from("chat_conversations")
+      .select("id,status,title,transferred_at,last_message_at,last_user_message_at,last_support_message_at,user_last_read_at,created_at,updated_at,closed_at,closed_reason,locale,support_conversation_ratings(stars,sentiment,comment,created_at,updated_at)")
+      .eq("user_id", context.user.id).order("updated_at", { ascending: false }).limit(100),
   ]);
-  const error = conversation.error || messages.error;
+  const error = conversation.error || messages.error || conversations.error;
   if (error) throw new PortalError(error.message, 400);
-  await context.userDb.rpc("mark_support_conversation_read", { p_conversation_id: conversationId });
-  return { conversation: conversation.data ?? {}, messages: messages.data ?? [] };
+  const mark = await context.userDb.rpc("mark_support_conversation_read", { p_conversation_id: conversationId });
+  if (mark.error) throw new PortalError(mark.error.message, 400);
+  const current = (conversation.data ?? {}) as Row;
+  const currentWithRating = ((conversations.data ?? []) as Row[]).find((item) => value(item.id) === conversationId) ?? current;
+  return { conversation: currentWithRating, messages: messages.data ?? [], conversations: conversations.data ?? [] };
+}
+
+async function loadSupport(context: BuyerContext) {
+  return supportConversationBundle(context);
 }
 
 const merchantOnlyNotificationTypes = new Set([
@@ -507,6 +529,25 @@ export async function POST(request: NextRequest) {
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: { rfqRequestId: result.data } });
     }
+    if (action === "create_direct_rfq_from_offer") {
+      const offerId = uuid(body.offerId);
+      const quoteItemIds = Array.isArray(body.quoteItemIds) ? body.quoteItemIds.map(uuid).filter(Boolean) : [];
+      if (!offerId || !quoteItemIds.length) throw new PortalError("manual_rfq_items_required", 400);
+      const result = await context.userDb.rpc("create_direct_rfq_from_offer", {
+        p_offer_id: offerId,
+        p_quote_item_ids: quoteItemIds,
+        p_expires_at: null,
+      });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: { rfqRequestId: result.data } });
+    }
+    if (action === "reject_rfq_response") {
+      const rfqResponseId = uuid(body.rfqResponseId);
+      if (!rfqResponseId) throw new PortalError("rfq_response_not_found", 404);
+      const result = await context.userDb.rpc("reject_rfq_response", { p_rfq_response_id: rfqResponseId });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: result.data });
+    }
     if (action === "rfq_shipping_options") {
       const rfqResponseId = uuid(body.rfqResponseId);
       if (!rfqResponseId) throw new PortalError("rfq_response_not_found", 404);
@@ -542,13 +583,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: result.data });
     }
     if (action === "order_payment_dashboard") {
-      const orderId = uuid(body.orderId);
-      if (!orderId) throw new PortalError("order_not_found", 404);
-      const owned = await context.service.from("orders").select("id").eq("id", orderId).eq("buyer_id", context.user.id).maybeSingle();
-      if (!owned.data) throw new PortalError("order_not_found", 404);
-      const result = await context.userDb.rpc("buyer_order_payment_dashboard", { p_order_id: orderId });
-      if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data ?? {} });
+      // Intentionally unavailable in the Buyer web portal to match the current mobile app.
+      // Buyer payment UI is dormant in Flutter and must not be revived by a hidden web action.
+      throw new PortalError("buyer_payment_not_available", 404);
     }
     if (action === "open_order_chat") {
       const orderId = uuid(body.orderId); const merchantId = uuid(body.merchantId);
@@ -679,16 +716,57 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json({ data: { updated: ids.length } });
     }
-    if (action === "send_support_message") {
-      const message = value(body.message).slice(0, 4000); if (!message) throw new PortalError("message_required");
-      const result = await context.userDb.rpc("send_support_message", { p_conversation_id: uuid(body.conversationId), p_body: message });
+    if (action === "create_support_conversation") {
+      const title = value(body.title).slice(0, 160);
+      if (title.length < 15) throw new PortalError("support_title_too_short");
+      const result = await context.userDb.rpc("create_support_conversation", { p_title: title, p_locale: body.locale === "en" ? "en" : "ar" });
       if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data });
+      return NextResponse.json({ data: await supportConversationBundle(context, value(result.data)) });
+    }
+    if (action === "load_support_conversation") {
+      return NextResponse.json({ data: await supportConversationBundle(context, uuid(body.conversationId)) });
+    }
+    if (action === "send_support_message") {
+      const conversationId = uuid(body.conversationId);
+      const message = value(body.message).slice(0, 4000);
+      if (!conversationId || !message) throw new PortalError("message_required");
+      const ownership = await context.service.from("chat_conversations").select("id,status").eq("id", conversationId).eq("user_id", context.user.id).maybeSingle();
+      if (!ownership.data?.id) throw new PortalError("support_conversation_not_found", 404);
+      let resultData: unknown;
+      if (value(ownership.data.status) === "transferred") {
+        const result = await context.userDb.rpc("send_support_message", { p_conversation_id: conversationId, p_body: message });
+        if (result.error) throw new PortalError(result.error.message, 400);
+        resultData = result.data;
+      } else {
+        const result = await context.userDb.functions.invoke("support-chatbot", {
+          body: { conversation_id: conversationId, message, locale: body.locale === "en" ? "en" : "ar" },
+        });
+        if (result.error) throw new PortalError(result.error.message, 400);
+        resultData = result.data;
+      }
+      return NextResponse.json({ data: { result: resultData, ...(await supportConversationBundle(context, conversationId)) } });
     }
     if (action === "transfer_support") {
-      const result = await context.userDb.rpc("transfer_support_conversation", { p_conversation_id: uuid(body.conversationId), p_reason: value(body.reason).slice(0, 500) || null });
+      const conversationId = uuid(body.conversationId);
+      if (!conversationId) throw new PortalError("support_conversation_not_found", 404);
+      const result = await context.userDb.rpc("transfer_support_conversation", { p_conversation_id: conversationId, p_reason: value(body.reason).slice(0, 500) || "requested_by_user" });
       if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data });
+      return NextResponse.json({ data: await supportConversationBundle(context, conversationId) });
+    }
+    if (action === "close_support_conversation") {
+      const conversationId = uuid(body.conversationId);
+      const result = await context.userDb.rpc("close_my_support_conversation", { p_conversation_id: conversationId });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: await supportConversationBundle(context, conversationId) });
+    }
+    if (action === "rate_support_conversation") {
+      const conversationId = uuid(body.conversationId);
+      const stars = Math.max(1, Math.min(5, Math.round(numberValue(body.stars, 5))));
+      const sentiment = body.sentiment === "negative" ? "negative" : "positive";
+      const comment = value(body.comment).slice(0, 1000) || null;
+      const result = await context.userDb.rpc("submit_my_support_conversation_rating", { p_conversation_id: conversationId, p_stars: stars, p_sentiment: sentiment, p_comment: comment });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: await supportConversationBundle(context, conversationId) });
     }
     if (action === "save_preferences") {
       const language = body.language === "en" ? "en" : "ar"; const theme = body.theme === "dark" ? "dark" : "light";
