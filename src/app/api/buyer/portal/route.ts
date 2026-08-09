@@ -10,6 +10,7 @@ function uuid(input: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : "";
 }
 function numberValue(input: unknown, fallback = 0) { const result = Number(input); return Number.isFinite(result) ? result : fallback; }
+function booleanValue(input: unknown, fallback = false) { return typeof input === "boolean" ? input : input === "true" ? true : input === "false" ? false : fallback; }
 function objectValue(input: unknown): Row { return input && typeof input === "object" && !Array.isArray(input) ? input as Row : {}; }
 function arrayValue(input: unknown): Row[] { return Array.isArray(input) ? input.filter((item) => item && typeof item === "object") as Row[] : []; }
 
