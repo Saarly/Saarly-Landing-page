@@ -437,7 +437,6 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
   const [linkedAccount, setLinkedAccount] = useState(false);
-  const [deliveryChannel, setDeliveryChannel] = useState<"conversation" | "request" | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -469,7 +468,6 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error ?? "support_request_failed");
-      setDeliveryChannel(payload.data?.conversationId ? "conversation" : "request");
       setState("sent");
       setForm((current) => ({ ...current, message: "" }));
     } catch (requestError) {
@@ -508,15 +506,15 @@ export function SupportPage({ deletion = false }: { deletion?: boolean }) {
           {siteConfig.supportEmail ? <a className="support-email" href={`mailto:${siteConfig.supportEmail}`}><Icon name="mail" />{siteConfig.supportEmail}</a> : null}
         </div>
         <form className="support-form" onSubmit={submit}>
-          <div className="support-form-head"><span className="feature-icon"><Icon name="mail" /></span><div><h2>{locale === "ar" ? "أرسل طلب دعم" : "Send a support request"}</h2><p>{linkedAccount ? (locale === "ar" ? "أنت مسجل الدخول؛ ستظهر الرسالة داخل نظام الدعم في لوحة الإدارة." : "You are signed in; this message will enter the admin support workflow.") : (locale === "ar" ? "سننشئ تذكرة دعم داخل النظام لتراجعها إدارة سعرلي." : "We will create a support ticket in the Saarly admin system for review.")}</p></div></div>
-          {linkedAccount ? <p className="account-linked-notice"><Icon name="shield" size={17} />{locale === "ar" ? "الطلب مرتبط بحسابك الحالي" : "Request linked to your current account"}</p> : null}
+          <div className="support-form-head"><span className="feature-icon"><Icon name="mail" /></span><div><h2>{locale === "ar" ? "أرسل طلب دعم" : "Send a support request"}</h2><p>{locale === "ar" ? "لا تحتاج إلى تسجيل الدخول. سنرسل طلبك مباشرة إلى فريق الدعم ولوحة الإدارة." : "You do not need to sign in. Your request will go directly to the support team and admin panel."}</p></div></div>
+          {linkedAccount ? <p className="account-linked-notice"><Icon name="shield" size={17} />{locale === "ar" ? "تم التعرف على حسابك الحالي لتسهيل المراجعة فقط" : "Your current account was recognized only to help with review"}</p> : null}
           <div className="form-grid">
             <label>{locale === "ar" ? "الاسم" : "Name"}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} autoComplete="name" placeholder={locale === "ar" ? "الاسم الكامل" : "Full name"} /></label>
             <label>{locale === "ar" ? "البريد الإلكتروني" : "Email"}<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" placeholder="name@example.com" /></label>
           </div>
           <label>{locale === "ar" ? "الموضوع" : "Subject"}<input required minLength={3} value={form.subject} onChange={(event) => setForm({ ...form, subject: event.target.value })} placeholder={locale === "ar" ? "اكتب عنوانًا مختصرًا للمشكلة" : "Write a short issue title"} /></label>
           <label>{locale === "ar" ? "التفاصيل" : "Details"}<textarea required minLength={10} maxLength={5000} rows={7} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder={locale === "ar" ? "اشرح ما حدث والخطوات التي جربتها" : "Explain what happened and what you already tried"} /></label>
-          {state === "sent" ? <p className="form-success">{deliveryChannel === "conversation" ? (locale === "ar" ? "تم إرسال رسالتك إلى فريق الدعم داخل حسابك." : "Your message was sent to support through your account.") : (locale === "ar" ? "تم إنشاء تذكرة الدعم داخل نظام سعرلي لتراجعها الإدارة." : "Your support ticket was created in the Saarly admin support system.")}</p> : null}
+          {state === "sent" ? <p className="form-success">{locale === "ar" ? "تم إرسال طلبك إلى فريق الدعم بنجاح." : "Your support request was sent successfully."}</p> : null}
           {state === "error" ? <p className="form-error">{locale === "ar" ? `تعذر الإرسال: ${error}` : `Could not send: ${error}`}</p> : null}
           <button className="button primary" type="submit" disabled={state === "sending"}>{state === "sending" ? (locale === "ar" ? "جارٍ الإرسال" : "Sending") : (locale === "ar" ? "إرسال الطلب" : "Send request")}<Icon name="arrow" /></button>
         </form>

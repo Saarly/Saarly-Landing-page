@@ -57,6 +57,7 @@ test("light mode uses brand-green panels instead of fixed near-black panels", ()
 test("support form stores requests and queues its notification destination", () => {
   assert.match(supportRoute, /portal_submit_public_support_request/);
   assert.match(supportRoute, /admin_email_events/);
-  assert.match(supportRoute, /SUPPORT_NOTIFICATION_EMAIL/);
+  assert.match(supportRoute, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(supportRoute, /event_id/);
   assert.match(supportRoute, /info@saarly\.app/);
 });

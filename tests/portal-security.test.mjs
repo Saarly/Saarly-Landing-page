@@ -136,10 +136,12 @@ test("merchant sign-in uses email OTP with an actual remember-device setting", (
   assert.match(client, /localStorage/);
 });
 
-test("support requests create an admin workflow and queue an email notification", () => {
-  assert.match(support, /start_or_get_support_conversation/);
+test("public landing support always creates a public admin request and dispatches its email", () => {
+  assert.match(support, /portal_submit_public_support_request/);
+  assert.doesNotMatch(support, /start_or_get_support_conversation/);
   assert.match(support, /admin_email_events/);
   assert.match(support, /process-admin-email-events/);
+  assert.match(support, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(support, /info@saarly\.app/);
 });
 
