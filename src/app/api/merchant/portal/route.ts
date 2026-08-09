@@ -64,7 +64,7 @@ async function signBuyerMerchantRows(context: MerchantContext, items: Row[]) {
 async function signBuyerProductRows(context: MerchantContext, items: Row[]) {
   return Promise.all(items.map(async (item) => {
     const rawImages = Array.isArray(item.image_urls) ? item.image_urls : [];
-    const imageValues = [item.image_url, ...rawImages].map(value).filter(Boolean).slice(0, 6);
+    const imageValues = [item.image_url, ...rawImages].map(value).filter(Boolean).slice(0, 1);
     const signedImages = await Promise.all(imageValues.map((image) => signedStorageUrl(context, "product-images", image)));
     const cleanImages = signedImages.filter(Boolean);
     return {
@@ -805,6 +805,7 @@ export async function POST(request: NextRequest) {
       if (!canManage(context, "products")) throw new PortalError("product_permission_required", 403);
       const productId = uuid(body.id);
       const categoryId = uuid(body.categoryId) || null;
+      const productImage = (stringList(body.imageUrls)[0] || value(body.imageUrl)).slice(0, 1000);
       const payload = {
         merchant_id: context.merchantId,
         category_id: categoryId,
@@ -815,8 +816,8 @@ export async function POST(request: NextRequest) {
         brand: value(body.brand).slice(0, 160) || null,
         size: value(body.size).slice(0, 120) || null,
         color: value(body.color).slice(0, 120) || null,
-        image_url: (stringList(body.imageUrls)[0] || value(body.imageUrl)).slice(0, 1000) || null,
-        image_urls: (stringList(body.imageUrls).length ? stringList(body.imageUrls) : value(body.imageUrl) ? [value(body.imageUrl)] : []).slice(0, 6).map((item) => item.slice(0, 1000)),
+        image_url: productImage || null,
+        image_urls: productImage ? [productImage] : [],
         is_active: booleanValue(body.isActive, true),
         is_available: booleanValue(body.isAvailable, true),
         shipping_type: value(body.shippingType) || "fixed",

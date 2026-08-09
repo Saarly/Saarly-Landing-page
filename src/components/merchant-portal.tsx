@@ -67,13 +67,17 @@ function permissionAllows(payload: PortalPayload, section: string) {
 }
 
 
+let merchantPortalCache: { section: string; payload: PortalPayload } | null = null;
+
 export function MerchantPortal({ section = "overview" }: { section?: string }) {
   const { locale, setLocale, theme, setTheme } = useSitePreferences();
-  const [payload, setPayload] = useState<PortalPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const activeSection = sectionTitles[section] && section !== "buyer" ? section : "overview";
+  const cached = merchantPortalCache;
+  const [payload, setPayload] = useState<PortalPayload | null>(cached?.payload ?? null);
+  const [loading, setLoading] = useState(!cached);
+  const [sectionLoading, setSectionLoading] = useState(Boolean(cached && cached.section !== activeSection));
   const [error, setError] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const activeSection = sectionTitles[section] && section !== "buyer" ? section : "overview";
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -82,13 +86,23 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try { setPayload(await portalGet(activeSection)); }
-    catch (loadError) {
+    const hasWorkspace = Boolean(merchantPortalCache?.payload);
+    const changingSection = Boolean(merchantPortalCache && merchantPortalCache.section !== activeSection);
+    if (!hasWorkspace) setLoading(true);
+    if (hasWorkspace && changingSection) setSectionLoading(true);
+    setError("");
+    try {
+      const nextPayload = await portalGet(activeSection);
+      merchantPortalCache = { section: activeSection, payload: nextPayload };
+      setPayload(nextPayload);
+    } catch (loadError) {
       const code = loadError instanceof Error ? loadError.message : "portal_load_failed";
       if (["authentication_required", "invalid_session"].includes(code)) { window.location.replace("/merchant-login"); return; }
       setError(code);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+      setSectionLoading(false);
+    }
   }, [activeSection]);
 
   useEffect(() => {
@@ -106,6 +120,7 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
   }, [load]);
 
   const unread = payload ? numberValue(payload.account.unreadNotifications, activeSection === "overview" ? numberValue(row(payload.data.counts).notifications) : 0) : 0;
+  const activePayloadReady = merchantPortalCache?.section === activeSection;
 
   useEffect(() => {
     if (!payload || typeof window === "undefined") return;
@@ -123,7 +138,7 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
   }, [payload, activeSection]);
 
   if (loading) return <PortalState loading title={locale === "ar" ? "جارٍ تجهيز مساحة المتجر" : "Preparing your store workspace"} body={locale === "ar" ? "نتحقق من الجلسة والصلاحيات ونحمّل البيانات الآمنة." : "Checking the session and permissions, then loading secure data."}/>;
-  if (error || !payload) {
+  if (!payload) {
     const registrationError = ["merchant_account_required", "merchant_pending_approval", "merchant_registration_rejected", "profile_incomplete"].includes(error);
     return <PortalState title={locale === "ar" ? "تعذر فتح مساحة المتجر" : "Could not open the store workspace"} body={humanError(error, locale)} action={<div className="state-actions">{registrationError ? <Link className="button primary" href="/merchant-register">{locale === "ar" ? "فتح تسجيل المتجر" : "Open merchant registration"}</Link> : <button className="button primary" type="button" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button>}<Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;
   }
@@ -217,10 +232,14 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
       </>}
     >
       {suspended ? <Notice tone="danger" title={locale === "ar" ? "المتجر موقوف إداريًا" : "Store is administratively suspended"}>{text(merchant.suspension_reason, locale === "ar" ? "راجع دعم سعرلي لمعرفة التفاصيل." : "Contact Saarly support for details.")}</Notice> : null}
-      <SectionRenderer section={activeSection} payload={payload} locale={locale} refresh={load} notify={notify}/>
+      {sectionLoading || !activePayloadReady ? <PortalSectionLoading locale={locale}/> : error ? <Notice tone="danger" title={locale === "ar" ? "تعذر تحديث هذه الصفحة" : "Could not refresh this page"}><span>{humanError(error, locale)}</span><button className="button secondary compact" type="button" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button></Notice> : <SectionRenderer section={activeSection} payload={payload} locale={locale} refresh={load} notify={notify}/>}
     </PortalAppShell>
     <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : toast.message}</span><button type="button" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
   </>;
+}
+
+function PortalSectionLoading({ locale }: { locale: "ar" | "en" }) {
+  return <div className="portal-section-skeleton" role="status" aria-label={locale === "ar" ? "جارٍ تحديث المحتوى" : "Updating content"}><span/><span/><span/></div>;
 }
 
 function SectionRenderer({ section, payload, locale, refresh, notify }: { section: string; payload: PortalPayload; locale: "ar" | "en"; refresh: () => Promise<void>; notify: (message: string, tone?: "success" | "error" | "info") => void }) {

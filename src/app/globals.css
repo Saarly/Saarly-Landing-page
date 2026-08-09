@@ -2221,3 +2221,904 @@ html[data-theme="dark"] .auth-page { background: radial-gradient(circle at 8% 4%
 .branch-product-availability-list .switch-row small { display: block; margin-top: 3px; color: var(--muted); }
 .referral-program-banner { overflow: hidden; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); }
 .referral-program-banner img { display: block; width: 100%; max-height: 260px; object-fit: cover; }
+
+/* ========================================================================== */
+/* Portal V2 — focused UI corrections from live review (2026-08-09)          */
+/* ========================================================================== */
+
+/* Sidebar: transparent logo treatment + viewport-locked desktop navigation. */
+.portal-v2-brand-row .brand,
+.portal-v2-brand-row .brand.compact {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 0;
+  padding: 0;
+}
+.portal-v2-brand-row .brand.compact .brand-logo { width: 116px; }
+.portal-v2-nav { overscroll-behavior: contain; }
+
+@media (min-width: 981px) {
+  .portal-v2 { display: block; }
+  .portal-v2-sidebar {
+    height: 100dvh;
+    inset-block: 0;
+    inset-inline-start: 0;
+    position: fixed;
+    width: 298px;
+  }
+  .portal-v2-main { margin-inline-start: 298px; min-height: 100dvh; }
+}
+@media (min-width: 981px) and (max-width: 1240px) {
+  .portal-v2-sidebar { width: 250px; }
+  .portal-v2-main { margin-inline-start: 250px; }
+}
+@media (max-width: 980px) {
+  .portal-v2-main { margin-inline-start: 0; }
+}
+
+/* Do not replace the whole portal with a full-screen loader during normal use. */
+.portal-section-loading,
+.portal-inline-error {
+  align-items: center;
+  background: var(--portal-panel);
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  color: var(--portal-muted);
+  display: flex;
+  gap: 11px;
+  justify-content: center;
+  min-height: 112px;
+  padding: 20px;
+}
+.portal-section-loading .spinner { height: 24px; width: 24px; }
+.portal-inline-error { color: var(--portal-text); justify-content: flex-start; }
+.portal-inline-error > span { flex: 1; }
+
+/* Consistent, compact custom checkboxes instead of browser-default blue blocks. */
+.portal-v2 input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--portal-panel);
+  border: 1.5px solid color-mix(in srgb, var(--portal-muted) 44%, transparent);
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--portal-panel) 60%, transparent);
+  cursor: pointer;
+  flex: 0 0 22px;
+  height: 22px !important;
+  min-height: 22px !important;
+  min-width: 22px;
+  padding: 0 !important;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  width: 22px !important;
+}
+.portal-v2 input[type="checkbox"]:hover { border-color: var(--portal-accent); }
+.portal-v2 input[type="checkbox"]:checked {
+  background-color: var(--portal-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10.5 8 14l8-9' fill='none' stroke='%23152015' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 15px 15px;
+  border-color: var(--portal-accent-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--portal-accent) 15%, transparent);
+}
+.portal-v2 input[type="checkbox"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--portal-accent) 65%, transparent);
+  outline-offset: 3px;
+}
+.portal-v2 input[type="checkbox"]:disabled { cursor: not-allowed; opacity: .55; }
+
+/* Text/control rhythm: labels and helper copy must never collide with fields. */
+.portal-v2 .portal-form label:not(.switch-row):not(.image-add-card),
+.portal-v2 .form-grid > label,
+.portal-v2 .delivery-row-editor > label,
+.portal-v2 .time-pair > label,
+.portal-v2 .delivery-free-minimum {
+  display: grid;
+  gap: 7px;
+}
+.portal-v2 label > small,
+.portal-v2 .switch-row small {
+  color: var(--portal-muted);
+  line-height: 1.5;
+}
+.portal-v2 .switch-row {
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+  padding: 13px 14px;
+}
+.portal-v2 .switch-row > span { display: grid; flex: 1; gap: 3px; }
+.portal-v2 .switch-row > span strong { line-height: 1.35; }
+.portal-v2 .portal-panel > .form-actions { margin: 18px 20px 20px; }
+.portal-v2 .portal-panel > .inline-form,
+.portal-v2 .portal-panel > .form-grid,
+.portal-v2 .portal-panel > .switch-grid { margin-block: 18px; }
+.portal-v2 .portal-panel > .portal-notice { margin-block: 18px; }
+.portal-v2 .form-actions { align-items: center; gap: 10px; }
+
+/* Working hours: stable rows, clear day state, and breathing room around save. */
+.portal-v2 .portal-panel > .hours-list { margin-block: 0; padding-block: 18px 2px; }
+.portal-v2 .hours-list { gap: 10px; }
+.portal-v2 .hour-row {
+  align-items: center;
+  gap: 18px;
+  min-height: 82px;
+  padding: 13px 15px;
+}
+.portal-v2 .hour-row > .switch-row {
+  background: transparent;
+  border: 0;
+  flex: 0 1 270px;
+  min-height: 0;
+  padding: 4px;
+}
+.portal-v2 .time-pair { gap: 10px; }
+.portal-v2 .time-pair label { min-width: 126px; }
+.portal-v2 .time-pair label > span { color: var(--portal-muted); font-size: .72rem; }
+.portal-v2 .time-pair select { min-width: 126px; }
+@media (max-width: 800px) {
+  .portal-v2 .hour-row { align-items: stretch; }
+  .portal-v2 .hour-row > .switch-row { flex-basis: auto; }
+  .portal-v2 .time-pair { align-items: end; display: grid; grid-template-columns: 1fr auto 1fr; }
+  .portal-v2 .time-pair label, .portal-v2 .time-pair select { min-width: 0; width: 100%; }
+}
+
+/* Delivery/shipping: prevent controls from touching panel borders or divider lines. */
+.portal-v2 .delivery-free-card,
+.portal-v2 .delivery-method-body,
+.portal-v2 .delivery-shipping-body {
+  display: grid;
+  gap: 18px;
+  padding: 18px 0 20px;
+}
+.portal-v2 .delivery-method-body > *,
+.portal-v2 .delivery-shipping-body > *,
+.portal-v2 .delivery-free-card > * { margin-block: 0; }
+.portal-v2 .delivery-method-picker { display: grid; gap: 9px; }
+.portal-v2 .delivery-method-picker .field-heading { margin: 0; }
+.portal-v2 .delivery-save-row,
+.portal-v2 .delivery-tier-actions { display: flex; justify-content: flex-start; }
+.portal-v2 .delivery-method-switches { gap: 12px; }
+.portal-v2 .delivery-row-list { display: grid; gap: 10px; }
+.portal-v2 .delivery-row-editor { gap: 12px; padding: 14px; }
+.portal-v2 .inline-form { gap: 12px; margin: 0; }
+.portal-v2 .shipping-company-list { margin: 0; }
+.portal-v2 .delivery-shipping-body .portal-table-wrap { margin-inline: -6px; }
+.portal-v2 .input-with-suffix {
+  background: var(--portal-panel-soft);
+  border-color: var(--portal-border);
+}
+.portal-v2 .input-with-suffix input { background: transparent; box-shadow: none; }
+.portal-v2 .input-with-suffix > span {
+  align-items: center;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--portal-panel) 74%, var(--portal-accent) 7%);
+  border-inline-start: 1px solid var(--portal-border);
+  color: var(--portal-muted);
+  display: flex;
+  min-height: 46px;
+  padding-inline: 14px;
+}
+html[data-theme="dark"] .portal-v2 .input-with-suffix > span { background: #202a22; }
+
+/* Product editor: one-image layout, matching the app. */
+.portal-v2 .multi-image-editor { display: grid; gap: 10px; }
+.portal-v2 .multi-image-editor .field-heading { align-items: flex-start; display: flex; flex-direction: column; gap: 3px; margin: 0; }
+.portal-v2 .image-preview-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 150px)); }
+.portal-v2 .image-add-card { min-height: 130px; }
+
+/* One ad at a time, rotating like the app rather than stacking banners. */
+.portal-ad-carousel {
+  background: var(--portal-panel);
+  border: 1px solid var(--portal-border);
+  border-radius: 18px;
+  box-shadow: var(--portal-shadow);
+  height: clamp(132px, 20vw, 220px);
+  overflow: hidden;
+  position: relative;
+}
+.portal-ad-carousel-media { display: block; height: 100%; width: 100%; }
+.portal-ad-carousel-media img { display: block; height: 100%; width: 100%; }
+.portal-ad-carousel-arrow {
+  align-items: center;
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--portal-panel) 82%, transparent);
+  border: 1px solid var(--portal-border);
+  border-radius: 50%;
+  color: var(--portal-text);
+  cursor: pointer;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  z-index: 2;
+}
+.portal-ad-carousel-arrow.previous { inset-inline-start: 12px; }
+.portal-ad-carousel-arrow.next { inset-inline-end: 12px; transform: translateY(-50%) rotate(180deg); }
+[dir="rtl"] .portal-ad-carousel-arrow.previous { transform: translateY(-50%) rotate(180deg); }
+[dir="rtl"] .portal-ad-carousel-arrow.next { transform: translateY(-50%); }
+.portal-ad-carousel-dots {
+  align-items: center;
+  background: color-mix(in srgb, var(--portal-panel) 78%, transparent);
+  border: 1px solid var(--portal-border);
+  border-radius: 99px;
+  bottom: 10px;
+  display: flex;
+  gap: 5px;
+  inset-inline-start: 50%;
+  padding: 6px 8px;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+[dir="rtl"] .portal-ad-carousel-dots { transform: translateX(50%); }
+.portal-ad-carousel-dots button {
+  background: color-mix(in srgb, var(--portal-muted) 44%, transparent);
+  border: 0;
+  border-radius: 99px;
+  cursor: pointer;
+  height: 7px;
+  padding: 0;
+  transition: width .15s ease, background .15s ease;
+  width: 7px;
+}
+.portal-ad-carousel-dots button.active { background: var(--portal-accent); width: 20px; }
+@media (max-width: 640px) {
+  .portal-ad-carousel { border-radius: 15px; height: clamp(132px, 46vw, 205px); }
+  .portal-ad-carousel-arrow { height: 32px; width: 32px; }
+}
+.portal-v2 .portal-panel > .referral-web-card { padding-block: 18px 20px; }
+
+/* ========================================================================== */
+/* Portal V2 — full UI consistency sweep (buyer + merchant) — 2026-08-09     */
+/* ========================================================================== */
+
+/* Panels: every body gets deliberate vertical breathing room; edge-to-edge
+   lists keep their horizontal behavior but never stick to headers/borders. */
+.portal-v2 .portal-panel > :not(.portal-panel-head) {
+  margin-block-start: 18px;
+  margin-block-end: 20px;
+}
+.portal-v2 .portal-panel > .portal-form,
+.portal-v2 .portal-panel > .buyer-quick-actions,
+.portal-v2 .portal-panel > .portal-table-wrap,
+.portal-v2 .portal-panel > .compact-table-wrap,
+.portal-v2 .portal-panel > .branch-grid,
+.portal-v2 .portal-panel > .employee-grid,
+.portal-v2 .portal-panel > .request-card-grid,
+.portal-v2 .portal-panel > .plan-grid,
+.portal-v2 .portal-panel > .gateway-grid,
+.portal-v2 .portal-panel > .notification-list,
+.portal-v2 .portal-panel > .notification-mini-list,
+.portal-v2 .portal-panel > .rfq-editor-list,
+.portal-v2 .portal-panel > .detail-list,
+.portal-v2 .portal-panel > .buyer-favorites-grid,
+.portal-v2 .portal-panel > .buyer-alert-list,
+.portal-v2 .portal-panel > .buyer-store-list,
+.portal-v2 .portal-panel > .buyer-request-list,
+.portal-v2 .portal-panel > .buyer-order-list,
+.portal-v2 .portal-panel > .hours-list,
+.portal-v2 .portal-panel > .settings-links {
+  margin-block-start: 0;
+  margin-block-end: 0;
+}
+.portal-v2 .portal-panel > .portal-form,
+.portal-v2 .portal-panel > .buyer-quick-actions,
+.portal-v2 .portal-panel > .branch-grid,
+.portal-v2 .portal-panel > .employee-grid,
+.portal-v2 .portal-panel > .request-card-grid,
+.portal-v2 .portal-panel > .plan-grid,
+.portal-v2 .portal-panel > .gateway-grid,
+.portal-v2 .portal-panel > .buyer-request-list,
+.portal-v2 .portal-panel > .buyer-order-list,
+.portal-v2 .portal-panel > .settings-links {
+  padding-block-start: 18px;
+  padding-block-end: 20px;
+}
+.portal-v2 .portal-panel > .portal-table-wrap,
+.portal-v2 .portal-panel > .compact-table-wrap,
+.portal-v2 .portal-panel > .notification-list,
+.portal-v2 .portal-panel > .notification-mini-list,
+.portal-v2 .portal-panel > .detail-list,
+.portal-v2 .portal-panel > .buyer-favorites-grid,
+.portal-v2 .portal-panel > .buyer-alert-list,
+.portal-v2 .portal-panel > .buyer-store-list,
+.portal-v2 .portal-panel > .hours-list {
+  padding-block-start: 16px;
+  padding-block-end: 18px;
+}
+
+/* Forms: clearer label → control → helper rhythm everywhere. */
+.portal-v2 .portal-form,
+.portal-v2 .form-grid,
+.portal-v2 .inline-form,
+.portal-v2 .import-row-form,
+.portal-v2 .manual-payment-form,
+.portal-v2 .direct-request-form,
+.portal-v2 .location-picker-grid {
+  row-gap: 16px;
+}
+.portal-v2 label:not(.switch-row):not(.image-add-card) > span:first-child,
+.portal-v2 .field-heading {
+  color: var(--portal-text);
+  display: block;
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 0;
+}
+.portal-v2 label > input,
+.portal-v2 label > select,
+.portal-v2 label > textarea {
+  margin-top: 1px;
+}
+.portal-v2 input,
+.portal-v2 select,
+.portal-v2 textarea,
+.portal-v2 button {
+  font-family: inherit;
+}
+.portal-v2 input[type="number"],
+.portal-v2 input[type="tel"],
+.portal-v2 .input-with-suffix input,
+.portal-v2 .plan-price,
+.portal-v2 .metric-card strong,
+.portal-v2 .toolbar-count,
+.portal-v2 .quote-total,
+.portal-v2 .order-total,
+.portal-v2 .offer-total {
+  font-variant-numeric: tabular-nums;
+}
+.portal-v2 input[type="number"],
+.portal-v2 input[type="tel"] { unicode-bidi: plaintext; }
+
+/* Activation controls: switch rows use a real compact toggle instead of a
+   huge browser checkbox. Ordinary selection checkboxes remain square. */
+.portal-v2 .switch-row input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: color-mix(in srgb, var(--portal-muted) 25%, var(--portal-panel));
+  background-image: radial-gradient(circle at 11px 50%, #fff 0 8px, transparent 8.5px);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border: 1px solid color-mix(in srgb, var(--portal-muted) 35%, transparent);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.08);
+  flex: 0 0 42px;
+  height: 24px !important;
+  min-height: 24px !important;
+  min-width: 42px;
+  width: 42px !important;
+}
+.portal-v2 .switch-row input[type="checkbox"]:checked {
+  background-color: var(--portal-accent);
+  background-image: radial-gradient(circle at calc(100% - 11px) 50%, #fff 0 8px, transparent 8.5px);
+  border-color: var(--portal-accent-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--portal-accent) 12%, transparent);
+}
+.portal-v2 .switch-row input[type="checkbox"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--portal-accent) 65%, transparent);
+  outline-offset: 3px;
+}
+.portal-v2 .switch-row {
+  min-height: 62px;
+}
+.portal-v2 .switch-row > span small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+}
+
+/* Working hours: separate day/state from times; no overlapping Arabic text. */
+.portal-v2 .hours-list {
+  display: grid;
+  gap: 11px;
+  padding-inline: 18px;
+}
+.portal-v2 .hour-row {
+  align-items: center;
+  background: var(--portal-panel-soft);
+  border: 1px solid var(--portal-border);
+  border-radius: 15px;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(220px,.72fr) minmax(330px,1fr);
+  min-height: 88px;
+  padding: 14px 16px;
+}
+.portal-v2 .hour-row > .switch-row {
+  background: transparent;
+  border: 0;
+  min-height: 52px;
+  padding: 4px 2px;
+}
+.portal-v2 .hour-summary {
+  align-items: center;
+  display: flex !important;
+  gap: 7px 10px !important;
+}
+.portal-v2 .hour-summary > b {
+  color: var(--portal-accent-strong);
+  font-size: .66rem;
+  font-weight: 850;
+}
+.portal-v2 .hour-summary > span { direction: ltr; unicode-bidi: isolate; }
+.portal-v2 .time-pair {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(126px,1fr) auto minmax(126px,1fr);
+}
+.portal-v2 .time-pair > svg { color: var(--portal-muted); margin-bottom: 15px; }
+.portal-v2 .portal-panel > .hours-list + .form-actions {
+  margin: 16px 18px 20px;
+  padding-top: 16px;
+}
+
+/* Toolbars/tabs/actions must not collide with the content that follows. */
+.portal-v2 .portal-toolbar {
+  gap: 12px;
+  padding: 16px 18px;
+}
+.portal-v2 .portal-subtabs,
+.portal-v2 .notification-category-tabs,
+.portal-v2 .compact-tabs {
+  margin-block: 16px;
+}
+.portal-v2 .inline-actions,
+.portal-v2 .modal-actions,
+.portal-v2 .form-actions,
+.portal-v2 .panel-footer-actions,
+.portal-v2 .branch-card-actions,
+.portal-v2 .delivery-tier-actions,
+.portal-v2 .delivery-save-row {
+  align-items: center;
+  column-gap: 9px;
+  row-gap: 9px;
+}
+.portal-v2 .form-actions,
+.portal-v2 .modal-actions {
+  flex-wrap: wrap;
+}
+
+/* Lists/cards shared by buyer + merchant: consistent inner spacing and text. */
+.portal-v2 .buyer-favorites-grid,
+.portal-v2 .buyer-alert-list,
+.portal-v2 .buyer-store-list,
+.portal-v2 .buyer-product-grid,
+.portal-v2 .buyer-request-list,
+.portal-v2 .buyer-order-list,
+.portal-v2 .branch-grid,
+.portal-v2 .employee-grid,
+.portal-v2 .request-card-grid,
+.portal-v2 .offer-card-grid,
+.portal-v2 .plan-grid,
+.portal-v2 .gateway-grid {
+  gap: 14px;
+}
+.portal-v2 .buyer-favorites-grid,
+.portal-v2 .buyer-alert-list,
+.portal-v2 .buyer-store-list {
+  padding-inline: 18px;
+}
+.portal-v2 .buyer-favorites-grid article,
+.portal-v2 .buyer-alert-list article,
+.portal-v2 .buyer-store-list article,
+.portal-v2 .buyer-product-card,
+.portal-v2 .buyer-request-card,
+.portal-v2 .buyer-order-card,
+.portal-v2 .request-card,
+.portal-v2 .offer-card,
+.portal-v2 .branch-card,
+.portal-v2 .employee-card {
+  border-color: var(--portal-border);
+  box-shadow: 0 4px 15px rgba(22,35,25,.025);
+}
+.portal-v2 .buyer-favorites-grid article > div,
+.portal-v2 .buyer-alert-list article > div,
+.portal-v2 .buyer-store-copy,
+.portal-v2 .buyer-request-card > header > div,
+.portal-v2 .buyer-order-card > header > div,
+.portal-v2 .offer-card > header > div {
+  gap: 5px;
+}
+.portal-v2 .buyer-favorites-grid strong,
+.portal-v2 .buyer-alert-list strong,
+.portal-v2 .buyer-store-list strong,
+.portal-v2 .buyer-request-card strong,
+.portal-v2 .buyer-order-card strong,
+.portal-v2 .offer-card strong {
+  line-height: 1.42;
+}
+.portal-v2 .buyer-favorites-grid small,
+.portal-v2 .buyer-alert-list small,
+.portal-v2 .buyer-store-list small,
+.portal-v2 .buyer-request-card small,
+.portal-v2 .buyer-order-card small,
+.portal-v2 .offer-card small {
+  line-height: 1.5;
+}
+
+/* Details: keep labels and values visually distinct with enough separation. */
+.portal-v2 .detail-list > div,
+.portal-v2 .detail-list > a {
+  gap: 20px;
+  min-height: 58px;
+  padding-block: 13px;
+}
+.portal-v2 .detail-list > div > span:first-child,
+.portal-v2 .detail-list > a > span:first-child {
+  flex: 0 0 auto;
+  line-height: 1.45;
+}
+.portal-v2 .detail-list strong {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Delivery/shipping: all controls sit inside the card, never on dividers. */
+.portal-v2 .delivery-free-card,
+.portal-v2 .delivery-method-body,
+.portal-v2 .delivery-shipping-body {
+  padding: 2px 0 2px;
+}
+.portal-v2 .delivery-method-switches,
+.portal-v2 .delivery-row-list,
+.portal-v2 .shipping-company-list,
+.portal-v2 .delivery-shipping-body > .form-grid,
+.portal-v2 .delivery-shipping-body > .inline-form {
+  margin-block: 0;
+}
+.portal-v2 .shipping-company-list {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+}
+.portal-v2 .shipping-company-list article {
+  border-radius: 13px;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 9px 8px 13px;
+}
+.portal-v2 .delivery-row-editor {
+  background: var(--portal-panel-soft);
+  border-color: var(--portal-border);
+  padding: 14px;
+}
+.portal-v2 .delivery-tier-actions,
+.portal-v2 .delivery-save-row { padding-top: 2px; }
+
+/* Referrals: compact single flow, no blank placeholder cards or cramped counts. */
+.portal-v2 .referral-web-card { gap: 20px; }
+.portal-v2 .referral-share-block {
+  background: var(--portal-panel-soft);
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  padding: 15px;
+}
+.portal-v2 .referral-link { gap: 9px; }
+.portal-v2 .referral-metrics-grid article {
+  background: var(--portal-panel-soft);
+  border-color: var(--portal-border);
+  min-height: 92px;
+  padding: 15px;
+}
+.portal-v2 .referral-progress-block {
+  background: var(--portal-panel-soft);
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  padding: 15px;
+}
+.portal-v2 .referral-progress-block > div > span {
+  direction: ltr;
+  font-variant-numeric: tabular-nums;
+  unicode-bidi: isolate;
+}
+.portal-v2 .referral-progress-block progress {
+  accent-color: var(--portal-accent);
+  border: 0;
+  border-radius: 999px;
+  height: 9px;
+  overflow: hidden;
+}
+
+/* Ads: one controlled banner, with a fixed visual frame rather than stacked images. */
+.portal-v2 .portal-ad-carousel {
+  background: var(--portal-panel);
+  border: 1px solid var(--portal-border);
+  border-radius: 18px;
+  box-shadow: var(--portal-shadow);
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+.portal-v2 .portal-ad-carousel-media {
+  align-items: center;
+  background: var(--portal-panel-soft);
+  display: flex;
+  justify-content: center;
+  min-height: 170px;
+}
+.portal-v2 .portal-ad-carousel-media img {
+  display: block;
+  max-height: 300px;
+  min-height: 170px;
+  width: 100%;
+}
+.portal-v2 .portal-ad-carousel-arrow {
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--portal-panel) 88%, transparent);
+  border: 1px solid var(--portal-border);
+  border-radius: 999px;
+  color: var(--portal-text);
+  height: 38px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  z-index: 2;
+}
+.portal-v2 .portal-ad-carousel-arrow.previous { inset-inline-start: 12px; }
+.portal-v2 .portal-ad-carousel-arrow.next { inset-inline-end: 12px; }
+.portal-v2 .portal-ad-carousel-dots {
+  align-items: center;
+  bottom: 10px;
+  display: flex;
+  gap: 6px;
+  inset-inline: 0;
+  justify-content: center;
+  position: absolute;
+  z-index: 2;
+}
+.portal-v2 .portal-ad-carousel-dots button {
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(0,0,0,.14);
+  border-radius: 999px;
+  height: 7px;
+  padding: 0;
+  width: 7px;
+}
+.portal-v2 .portal-ad-carousel-dots button.active { background: var(--portal-accent); width: 20px; }
+
+/* Modals: content blocks should never touch their frame. */
+.portal-v2 .portal-modal > .portal-two-columns,
+.portal-v2 .portal-modal > .order-detail-grid,
+.portal-v2 .portal-modal > .buyer-request-modal-body,
+.portal-v2 .portal-modal > .cart-modal-body,
+.portal-v2 .portal-modal > .detail-list,
+.portal-v2 .portal-modal > .offer-review-summary,
+.portal-v2 .portal-modal > .offer-review-items,
+.portal-v2 .portal-modal > .rfq-response-toolbar,
+.portal-v2 .portal-modal > .rfq-editor-list,
+.portal-v2 .portal-modal > .cancel-box,
+.portal-v2 .portal-modal > .order-chat-box {
+  margin-inline: 20px;
+}
+.portal-v2 .portal-modal > .portal-two-columns,
+.portal-v2 .portal-modal > .order-detail-grid,
+.portal-v2 .portal-modal > .cart-modal-body,
+.portal-v2 .portal-modal > .detail-list,
+.portal-v2 .portal-modal > .offer-review-summary,
+.portal-v2 .portal-modal > .rfq-response-toolbar,
+.portal-v2 .portal-modal > .rfq-editor-list {
+  margin-block: 18px;
+}
+.portal-v2 .portal-modal > .cancel-box,
+.portal-v2 .portal-modal > .order-chat-box { margin-block: 16px; }
+
+/* Support: message composer remains separated from the thread and frame. */
+.portal-v2 .support-workspace-v2,
+.portal-v2 .support-chat-v2,
+.portal-v2 .support-inbox-v2 { min-width: 0; }
+.portal-v2 .support-composer-v2,
+.portal-v2 .chat-composer {
+  border-top: 1px solid var(--portal-border);
+  gap: 10px;
+  padding: 14px;
+}
+.portal-v2 .support-messages-v2,
+.portal-v2 .chat-messages { scrollbar-gutter: stable; }
+
+/* Tables: values never visually merge into neighbouring cells. */
+.portal-v2 .portal-table th,
+.portal-v2 .portal-table td {
+  line-height: 1.5;
+  vertical-align: middle;
+}
+.portal-v2 .portal-table td + td,
+.portal-v2 .portal-table th + th {
+  border-inline-start: 1px solid color-mix(in srgb, var(--portal-border) 55%, transparent);
+}
+.portal-v2 .portal-table tbody tr + tr td { border-top: 1px solid var(--portal-border); }
+
+/* Responsive sweep for both portals. */
+@media (max-width: 900px) {
+  .portal-v2 .hour-row { grid-template-columns: 1fr; gap: 10px; }
+  .portal-v2 .time-pair { width: 100%; }
+  .portal-v2 .buyer-alert-list.expanded article { grid-template-columns: 1fr 1fr; }
+  .portal-v2 .buyer-alert-list.expanded article > div:first-child,
+  .portal-v2 .buyer-alert-list.expanded .inline-actions { grid-column: 1 / -1; }
+  .portal-v2 .buyer-favorites-grid.expanded article { grid-template-columns: 50px minmax(0,1fr); }
+  .portal-v2 .buyer-favorites-grid.expanded article > .status-badge,
+  .portal-v2 .buyer-favorites-grid.expanded .inline-actions { grid-column: 2; }
+  .portal-v2 .shipping-company-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .portal-v2 .portal-panel > :not(.portal-panel-head) { margin-inline: 14px; }
+  .portal-v2 .portal-panel > .portal-table-wrap,
+  .portal-v2 .portal-panel > .compact-table-wrap,
+  .portal-v2 .portal-panel > .notification-list,
+  .portal-v2 .portal-panel > .notification-mini-list,
+  .portal-v2 .portal-panel > .detail-list,
+  .portal-v2 .portal-panel > .buyer-favorites-grid,
+  .portal-v2 .portal-panel > .buyer-alert-list,
+  .portal-v2 .portal-panel > .buyer-store-list,
+  .portal-v2 .portal-panel > .buyer-request-list,
+  .portal-v2 .portal-panel > .buyer-order-list,
+  .portal-v2 .portal-panel > .hours-list,
+  .portal-v2 .portal-panel > .settings-links { margin-inline: 0; }
+  .portal-v2 .hours-list,
+  .portal-v2 .buyer-favorites-grid,
+  .portal-v2 .buyer-alert-list,
+  .portal-v2 .buyer-store-list { padding-inline: 13px; }
+  .portal-v2 .time-pair { grid-template-columns: 1fr auto 1fr; }
+  .portal-v2 .time-pair label { min-width: 0; }
+  .portal-v2 .switch-row { min-height: 58px; padding: 11px 12px; }
+  .portal-v2 .portal-modal > .portal-two-columns,
+  .portal-v2 .portal-modal > .order-detail-grid,
+  .portal-v2 .portal-modal > .cart-modal-body,
+  .portal-v2 .portal-modal > .detail-list,
+  .portal-v2 .portal-modal > .offer-review-summary,
+  .portal-v2 .portal-modal > .rfq-response-toolbar,
+  .portal-v2 .portal-modal > .rfq-editor-list,
+  .portal-v2 .portal-modal > .cancel-box,
+  .portal-v2 .portal-modal > .order-chat-box { margin-inline: 14px; }
+  .portal-v2 .referral-share-block { grid-template-columns: 40px minmax(0,1fr); padding: 13px; }
+  .portal-v2 .referral-link { align-items: stretch; flex-direction: column; }
+  .portal-v2 .referral-link .button { justify-content: center; width: 100%; }
+  .portal-v2 .portal-ad-carousel-media,
+  .portal-v2 .portal-ad-carousel-media img { min-height: 120px; }
+}
+
+/* Quiet in-place section refresh: no repeated full message card between pages. */
+.portal-section-skeleton {
+  display: grid;
+  gap: 14px;
+  min-height: 290px;
+}
+.portal-section-skeleton > span {
+  animation: portalSkeletonPulse 1.25s ease-in-out infinite alternate;
+  background: linear-gradient(100deg, var(--portal-panel) 20%, var(--portal-panel-soft) 48%, var(--portal-panel) 76%);
+  background-size: 220% 100%;
+  border: 1px solid var(--portal-border);
+  border-radius: 17px;
+  box-shadow: var(--portal-shadow);
+  display: block;
+  min-height: 82px;
+}
+.portal-section-skeleton > span:first-child { min-height: 116px; }
+.portal-section-skeleton > span:nth-child(2) { min-height: 148px; }
+@keyframes portalSkeletonPulse {
+  from { background-position: 100% 0; opacity: .72; }
+  to { background-position: 0 0; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-section-skeleton > span { animation: none; }
+}
+
+/* UI sweep — previously unstyled structural classes found in buyer/merchant sections. */
+.portal-v2 .merchant-dashboard-metrics,
+.portal-v2 .account-status-metrics { align-items: stretch; }
+.portal-v2 .reports-hero-grid { align-items: stretch; }
+.portal-v2 .merchant-badge-pill.trusted {
+  background: color-mix(in srgb, #4e8cb5 11%, var(--portal-panel));
+  border-color: color-mix(in srgb, #4e8cb5 34%, var(--portal-border));
+  color: #4e8cb5;
+}
+.portal-v2 .portal-filter-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 18px;
+}
+.portal-v2 .products-table .product-cell {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 48px minmax(0,1fr);
+  min-width: 220px;
+}
+.portal-v2 .products-table .product-cell > img,
+.portal-v2 .products-table .product-cell > span {
+  align-items: center;
+  background: var(--portal-panel-soft);
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  object-fit: cover;
+  overflow: hidden;
+  width: 48px;
+}
+.portal-v2 .products-table .product-cell > div { display: grid; gap: 4px; }
+.portal-v2 .products-table .product-cell small { line-height: 1.4; white-space: normal; }
+.portal-v2 .form-grid.four { grid-template-columns: repeat(4,minmax(0,1fr)); }
+
+/* Buyer cart now has a complete visual treatment instead of raw controls. */
+.portal-v2 .cart-store-list {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+}
+.portal-v2 .cart-store-chip {
+  align-items: center;
+  background: var(--portal-panel-soft);
+  border: 1px solid var(--portal-border);
+  border-radius: 13px;
+  color: var(--portal-text);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 30px minmax(0,1fr) auto;
+  min-height: 62px;
+  padding: 10px 12px;
+  text-align: start;
+}
+.portal-v2 .cart-store-chip:hover { border-color: color-mix(in srgb,var(--portal-accent) 55%,var(--portal-border)); }
+.portal-v2 .cart-store-chip > svg { color: var(--portal-accent-strong); }
+.portal-v2 .cart-store-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-v2 .cart-store-chip > strong {
+  align-items: center;
+  background: var(--green-pale);
+  border-radius: 999px;
+  color: var(--green-deep);
+  display: inline-flex;
+  font-size: .68rem;
+  height: 24px;
+  justify-content: center;
+  min-width: 24px;
+  padding-inline: 6px;
+}
+.portal-v2 .cart-store-chip > small { color: var(--portal-muted); grid-column: 2 / -1; }
+.portal-v2 .cart-item-list { display: grid; gap: 9px; }
+.portal-v2 .cart-item-row {
+  align-items: center;
+  background: var(--portal-panel-soft);
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 54px minmax(0,1fr) 92px minmax(100px,auto) 40px;
+  padding: 11px 12px;
+}
+.portal-v2 .cart-item-row > img,
+.portal-v2 .cart-item-row > .buyer-product-placeholder { height: 54px; width: 54px; }
+.portal-v2 .cart-item-row > img { border-radius: 10px; object-fit: cover; }
+.portal-v2 .cart-item-row > div { display: grid; gap: 4px; }
+.portal-v2 .cart-item-row > div small { color: var(--portal-muted); line-height: 1.4; }
+.portal-v2 .cart-item-row > input { min-height: 40px; text-align: center; }
+.portal-v2 .cart-item-row > span { font-weight: 800; white-space: nowrap; }
+.portal-v2 .cart-modal-body { display: grid; gap: 16px; }
+
+@media (max-width: 900px) {
+  .portal-v2 .form-grid.four { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .portal-v2 .cart-item-row { grid-template-columns: 48px minmax(0,1fr) 82px 38px; }
+  .portal-v2 .cart-item-row > span { grid-column: 2 / 4; }
+}
+@media (max-width: 560px) {
+  .portal-v2 .form-grid.four { grid-template-columns: 1fr; }
+  .portal-v2 .cart-store-list { grid-template-columns: 1fr; }
+  .portal-v2 .cart-item-row { grid-template-columns: 46px minmax(0,1fr) 38px; }
+  .portal-v2 .cart-item-row > input { grid-column: 2; width: 100%; }
+  .portal-v2 .cart-item-row > span { grid-column: 2; }
+  .portal-v2 .cart-item-row > .icon-button { grid-column: 3; grid-row: 1 / 3; }
+}
+.portal-v2 .rating-dialog .support-star-picker { justify-content: center; padding-block: 4px; }

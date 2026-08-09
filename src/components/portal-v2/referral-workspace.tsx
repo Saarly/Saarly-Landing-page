@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Icon } from "@/components/icons";
 import { Notice, PortalPanel } from "@/components/merchant/portal-ui";
-import { numberValue, safeExternalUrl, statusLabel, text, type PortalRow } from "@/components/merchant/portal-utils";
+import { PortalAdCarousel } from "@/components/portal-v2/ad-carousel";
+import { numberValue, statusLabel, text, type PortalRow } from "@/components/merchant/portal-utils";
 
 type Props = {
   dashboard: PortalRow;
@@ -37,6 +38,7 @@ export function ReferralWorkspace({ dashboard, ads, locale, audience, notify }: 
   const url = text(dashboard.referral_url, `https://saarly.app/invite?code=${text(dashboard.referral_code)}`);
   const code = text(dashboard.referral_code);
   const [copied, setCopied] = useState(false);
+  const isAvailable = dashboard.enabled === true || code.trim().length > 0 || text(dashboard.referral_url).trim().length > 0;
 
   async function copy() {
     await navigator.clipboard.writeText(url);
@@ -63,13 +65,9 @@ export function ReferralWorkspace({ dashboard, ads, locale, audience, notify }: 
     : (locale === "ar" ? "شارك سعرلي مع أصحابك واحصل على مكافآت خاصة بعد اكتمال العدد المطلوب من الإحالات المقبولة." : "Share Saarly with friends and earn special rewards after completing the required accepted referrals.");
 
   return <div className="portal-section-stack">
-    {dashboard.enabled === false ? <Notice tone="info">{locale === "ar" ? "نظام الدعوات غير مفعّل حاليًا." : "Referrals are currently disabled."}</Notice> : null}
+    {!isAvailable ? <Notice tone="info">{locale === "ar" ? "نظام الدعوات غير متاح لهذا الحساب حاليًا." : "Referrals are not available for this account right now."}</Notice> : null}
     {text(dashboard.banner_image_url) ? <div className="referral-program-banner"><img src={text(dashboard.banner_image_url)} alt={locale === "ar" ? "برنامج دعوات سعرلي" : "Saarly referral program"}/></div> : null}
-    {ads.length ? <div className="buyer-ad-grid">{ads.map((ad) => {
-      const href = safeExternalUrl(ad.target_url);
-      const image = <img src={text(ad.image_url)} alt={locale === "ar" ? "إعلان سعرلي" : "Saarly ad"}/>;
-      return href ? <a className="portal-ad" key={text(ad.id)} href={href} target="_blank" rel="noopener noreferrer">{image}</a> : <div className="portal-ad" key={text(ad.id)}>{image}</div>;
-    })}</div> : null}
+    {ads.length ? <PortalAdCarousel ads={ads} locale={locale} fit={audience === "merchant" ? "contain" : "cover"} openLinks={audience === "merchant"}/> : null}
 
     <PortalPanel title={title} subtitle={intro}>
       <div className="referral-web-card">

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { EmptyState, MetricCard, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { buyerNotificationTarget, dateLabel, money, numberValue, row, rows, safeExternalUrl, text } from "@/components/merchant/portal-utils";
+import { PortalAdCarousel } from "@/components/portal-v2/ad-carousel";
+import { buyerNotificationTarget, dateLabel, money, numberValue, row, rows, text } from "@/components/merchant/portal-utils";
 import type { BuyerSectionProps } from "@/components/buyer/section-props";
 
 export function BuyerHomeSection({ payload, locale }: BuyerSectionProps) {
@@ -22,7 +23,7 @@ export function BuyerHomeSection({ payload, locale }: BuyerSectionProps) {
     </PortalPanel>
 
     <PortalPanel title={locale === "ar" ? "إعلانات قريبة" : "Nearby ads"} subtitle={locale === "ar" ? "الإعلانات المطابقة لموقعك وإعدادات الإدارة الحالية." : "Ads matched to your location and current admin configuration."}>
-      {ads.length ? <div className="buyer-ad-grid">{ads.map((ad) => { const href = safeExternalUrl(ad.target_url); const content = <img src={text(ad.image_url)} alt={locale === "ar" ? "إعلان سعرلي" : "Saarly ad"}/>; return href ? <a className="portal-ad" href={href} target="_blank" rel="noreferrer" key={text(ad.id)}>{content}</a> : <article className="portal-ad" key={text(ad.id)}>{content}</article>; })}</div> : <EmptyState icon="bell" title={locale === "ar" ? "لا توجد إعلانات قريبة الآن" : "No nearby ads right now"} body={locale === "ar" ? "ستظهر هنا الإعلانات النشطة المناسبة لموقعك." : "Active ads relevant to your location will appear here."}/>} 
+      {ads.length ? <PortalAdCarousel ads={ads} locale={locale} fit="cover"/> : <EmptyState icon="bell" title={locale === "ar" ? "لا توجد إعلانات قريبة الآن" : "No nearby ads right now"} body={locale === "ar" ? "ستظهر هنا الإعلانات النشطة المناسبة لموقعك." : "Active ads relevant to your location will appear here."}/>} 
     </PortalPanel>
 
     <PortalPanel title={locale === "ar" ? "آخر الطلبات" : "Recent requests"} action={<Link className="button secondary compact" href="/buyer/requests">{locale === "ar" ? "كل الطلبات" : "All requests"}</Link>}>

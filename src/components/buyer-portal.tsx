@@ -38,13 +38,17 @@ const titles: Record<string, { ar: string; en: string; bodyAr: string; bodyEn: s
 };
 type Toast = { id: number; message: string; tone: "success" | "error" | "info" };
 
+let buyerPortalCache: { section: string; payload: PortalPayload } | null = null;
+
 export function BuyerPortal({ section = "home" }: { section?: string }) {
   const { locale, setLocale, theme, setTheme } = useSitePreferences();
-  const [payload, setPayload] = useState<PortalPayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const active = titles[section] ? section : "home";
+  const cached = buyerPortalCache;
+  const [payload, setPayload] = useState<PortalPayload | null>(cached?.payload ?? null);
+  const [loading, setLoading] = useState(!cached);
+  const [sectionLoading, setSectionLoading] = useState(Boolean(cached && cached.section !== active));
   const [error, setError] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const active = titles[section] ? section : "home";
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -53,13 +57,23 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try { setPayload(await buyerGet(active) as PortalPayload); }
-    catch (loadError) {
+    const hasWorkspace = Boolean(buyerPortalCache?.payload);
+    const changingSection = Boolean(buyerPortalCache && buyerPortalCache.section !== active);
+    if (!hasWorkspace) setLoading(true);
+    if (hasWorkspace && changingSection) setSectionLoading(true);
+    setError("");
+    try {
+      const nextPayload = await buyerGet(active) as PortalPayload;
+      buyerPortalCache = { section: active, payload: nextPayload };
+      setPayload(nextPayload);
+    } catch (loadError) {
       const code = loadError instanceof Error ? loadError.message : "buyer_portal_request_failed";
       if (["authentication_required", "invalid_session"].includes(code)) { window.location.replace("/login"); return; }
       setError(code);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+      setSectionLoading(false);
+    }
   }, [active]);
 
   useEffect(() => {
@@ -90,8 +104,9 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
   }, [payload, active]);
 
   if (loading) return <BuyerState loading title={locale === "ar" ? "جارٍ تجهيز حساب المشتري" : "Preparing your buyer account"} body={locale === "ar" ? "بنحمّل طلباتك وعروضك وبياناتك الآمنة." : "Loading your requests, offers, and secure account data."}/>;
-  if (error || !payload) return <BuyerState title={locale === "ar" ? "تعذر فتح حساب المشتري" : "Could not open the buyer portal"} body={humanError(error, locale)} action={<div className="state-actions"><button className="button primary" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button><Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;
+  if (!payload) return <BuyerState title={locale === "ar" ? "تعذر فتح حساب المشتري" : "Could not open the buyer portal"} body={humanError(error, locale)} action={<div className="state-actions"><button className="button primary" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button><Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;
 
+  const activePayloadReady = buyerPortalCache?.section === active;
   const profile = payload.account.profile;
   const title = titles[active];
   const unread = Number(payload.account.unreadNotifications ?? 0);
@@ -143,10 +158,14 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
         <button type="button" onClick={() => void supabase?.auth.signOut().then(() => window.location.replace("/"))}><Icon name="logout" size={18}/><span>{locale === "ar" ? "تسجيل الخروج" : "Sign out"}</span></button>
       </>}
     >
-      <SectionRenderer section={active} {...props}/>
+      {sectionLoading || !activePayloadReady ? <BuyerSectionLoading locale={locale}/> : error ? <div className="portal-inline-error"><Icon name="info" size={19}/><span>{humanError(error, locale)}</span><button className="button secondary compact" type="button" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button></div> : <SectionRenderer section={active} {...props}/>}
     </PortalAppShell>
     <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : toast.message}</span><button type="button" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
   </>;
+}
+
+function BuyerSectionLoading({ locale }: { locale: "ar" | "en" }) {
+  return <div className="portal-section-skeleton" role="status" aria-label={locale === "ar" ? "جارٍ تحديث المحتوى" : "Updating content"}><span/><span/><span/></div>;
 }
 
 function SectionRenderer({ section, payload, locale, refresh, notify }: BuyerSectionProps & { section: string }) {

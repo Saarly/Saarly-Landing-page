@@ -53,7 +53,7 @@ export function HoursSection({ payload, locale, refresh, notify }: SectionProps)
     <div className="hours-list">{items.map((item, index) => <article className="hour-row" key={item.dayOfWeek}>
       <label className="switch-row">
         <input type="checkbox" checked={item.isOpen} disabled={saving} onChange={(event) => setItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, isOpen: event.target.checked } : row))}/>
-        <span><strong>{locale === "ar" ? daysAr[index] : daysEn[index]}</strong><small>{item.isOpen ? `${item.opensAt} — ${item.closesAt}` : (locale === "ar" ? "مغلق" : "Closed")}</small></span>
+        <span><strong>{locale === "ar" ? daysAr[index] : daysEn[index]}</strong><small className="hour-summary">{item.isOpen ? <><b>{locale === "ar" ? "مفتوح" : "Open"}</b><span>{item.opensAt} — {item.closesAt}</span></> : <b>{locale === "ar" ? "مغلق" : "Closed"}</b>}</small></span>
       </label>
       {item.isOpen ? <div className="time-pair">
         <label><span>{locale === "ar" ? "يفتح" : "Opens at"}</span><select value={item.opensAt} disabled={saving} onChange={(event) => setItems((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, opensAt: event.target.value } : row))}>{timeOptions.map((option) => <option value={option} key={option}>{option}</option>)}</select></label>
