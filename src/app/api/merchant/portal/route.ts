@@ -692,7 +692,7 @@ async function loadSection(context: MerchantContext, section: string) {
         if (quoteIds.length) {
           const quotes = await context.service.from("quote_requests").select("id,delivery_type").in("id", quoteIds);
           if (!quotes.error) {
-            const quoteTypes = new Map(((quotes.data ?? []) as Row[]).map((item) => [value(item.id), value(item.delivery_type, "broadcast")]));
+            const quoteTypes = new Map(((quotes.data ?? []) as Row[]).map((item) => [value(item.id), value(item.delivery_type) || "broadcast"]));
             for (const offer of (offers.data ?? []) as Row[]) deliveryTypeByOffer.set(value(offer.id), quoteTypes.get(value(offer.quote_request_id)) ?? "broadcast");
           }
         }
