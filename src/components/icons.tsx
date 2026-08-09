@@ -5,7 +5,7 @@ type IconName =
   | "compare" | "target" | "list" | "store" | "history" | "bell" | "box" | "quote"
   | "users" | "desktop" | "arrow" | "shield" | "location" | "search" | "mail"
   | "phone" | "chevron" | "dashboard" | "branch" | "settings" | "logout" | "plus"
-  | "edit" | "trash" | "download" | "filter" | "clock" | "money" | "card" | "info" | "microphone" | "stop";
+  | "edit" | "trash" | "download" | "filter" | "clock" | "money" | "card" | "info" | "microphone" | "stop" | "star" | "truck";
 
 const paths: Record<IconName, ReactNode> = {
   menu: <><path d="M4 6h16M4 12h16M4 18h16" /></>,
@@ -48,6 +48,8 @@ const paths: Record<IconName, ReactNode> = {
   info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></>,
   microphone: <><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></>,
   stop: <><circle cx="12" cy="12" r="9"/><rect x="9" y="9" width="6" height="6" rx="1"/></>,
+  star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9Z"/>,
+  truck: <><path d="M3 6h11v10H3Z"/><path d="M14 9h4l3 3v4h-7Z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M3 16h2M9 16h7"/></>,
 };
 
 type IconProps = { name: IconName; size?: number } & Omit<SVGProps<SVGSVGElement>, "name">;

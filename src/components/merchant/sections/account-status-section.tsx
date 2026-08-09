@@ -1,54 +1,50 @@
 "use client";
 
+import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { MetricCard, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { bool, dateLabel, row, statusLabel, text } from "@/components/merchant/portal-utils";
+import { bool, dateLabel, numberValue, row, statusLabel, text } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
 export function AccountStatusSection({ payload, locale }: SectionProps) {
   const status = row(payload.data.status || payload.data);
   const merchant = payload.account.merchant;
   const approval = text(merchant.approval_status, "pending");
-  const access = text(status.access_status, approval === "approved" ? "pre_launch_access" : approval);
+  const access = text(status.access_status || status.account_status, approval === "approved" ? "pre_launch_access" : approval);
   const canReceiveWork = bool(status.can_receive_new_work, bool(status.can_receive_orders, approval === "approved"));
-  const canReceiveOrders = bool(status.can_receive_orders, canReceiveWork);
   const stopReason = text(status.stop_reason || merchant.rejection_reason);
-  const accessEnd = status.access_ends_at || status.free_trial_ends_at || status.grace_period_ends_at;
-  const planName = text(locale === "ar" ? status.plan_name_ar || status.active_plan_name_ar : status.plan_name_en || status.active_plan_name_en);
+  const detailRows = [
+    { labelAr: "طريقة التشغيل", labelEn: "Operating mode", value: statusLabel(status.pricing_mode || merchant.pricing_mode, locale) },
+    { labelAr: "استقبال الطلبات", labelEn: "Receiving requests", value: canReceiveWork ? (locale === "ar" ? "مفعل" : "Enabled") : (locale === "ar" ? "متوقف" : "Paused") },
+    ...(text(status.subscription_status) ? [{ labelAr: "حالة الصلاحية", labelEn: "Access lifecycle", value: statusLabel(status.subscription_status, locale) }] : []),
+    ...(stopReason ? [{ labelAr: "سبب التوقف", labelEn: "Pause reason", value: statusLabel(stopReason, locale) }] : []),
+    ...(status.founder_number != null ? [{ labelAr: "رقم المؤسس", labelEn: "Founder number", value: String(numberValue(status.founder_number)) }] : []),
+    ...(status.free_trial_starts_at ? [{ labelAr: "بداية الفترة المجانية", labelEn: "Free period start", value: dateLabel(status.free_trial_starts_at, locale) }] : []),
+    ...(status.free_trial_ends_at ? [{ labelAr: "نهاية الفترة المجانية", labelEn: "Free period end", value: dateLabel(status.free_trial_ends_at, locale) }] : []),
+    ...(status.subscription_starts_at ? [{ labelAr: "بداية الحالة الحالية", labelEn: "Current status start", value: dateLabel(status.subscription_starts_at, locale) }] : []),
+    ...(status.subscription_ends_at ? [{ labelAr: "نهاية الحالة الحالية", labelEn: "Current status end", value: dateLabel(status.subscription_ends_at, locale) }] : []),
+    ...(status.days_remaining != null ? [{ labelAr: "الأيام المتبقية", labelEn: "Days remaining", value: String(numberValue(status.days_remaining)) }] : []),
+    ...(status.grace_period_ends_at ? [{ labelAr: "نهاية فترة السماح", labelEn: "Grace period end", value: dateLabel(status.grace_period_ends_at, locale) }] : []),
+    ...(status.grace_period_days != null ? [{ labelAr: "مدة السماح", labelEn: "Grace period length", value: locale === "ar" ? `${numberValue(status.grace_period_days)} يوم` : `${numberValue(status.grace_period_days)} days` }] : []),
+    ...(status.blocked_from_new_work_at ? [{ labelAr: "توقف استقبال الطلبات", labelEn: "Paused since", value: dateLabel(status.blocked_from_new_work_at, locale) }] : []),
+  ];
 
-  return (
-    <div className="portal-section-stack">
-      <Notice tone={canReceiveWork ? "success" : "warning"} title={locale === "ar" ? "حالة استقبال العمل" : "Work receiving status"}>
-        {canReceiveWork
-          ? (locale === "ar" ? "متجرك يستطيع استقبال طلبات وتسعيرات جديدة حسب حالة الاعتماد الحالية." : "Your store can receive new orders and quote requests according to its current approval status.")
-          : (stopReason || (locale === "ar" ? "استقبال الطلبات متوقف حاليًا. راجع السبب أو تواصل مع دعم سعرلي." : "Receiving new work is currently paused. Review the reason or contact Saarly support."))}
-      </Notice>
+  return <div className="portal-section-stack">
+    {!canReceiveWork ? <Notice tone="danger" title={locale === "ar" ? "استقبال الطلبات متوقف" : "New requests paused"}>{locale === "ar" ? "حساب المتجر غير نشط حاليًا، لذلك تم إيقاف استقبال الطلبات الجديدة. ما زال بإمكانك الدخول ومراجعة حالة الحساب." : "The store account is currently inactive, so new requests are paused. You can still access the portal and review account status."}</Notice> : null}
 
-      <div className="metrics-grid">
-        <MetricCard icon="shield" label={locale === "ar" ? "حالة الوصول" : "Access status"} value={statusLabel(access, locale)} note={planName || statusLabel(approval, locale)}/>
-        <MetricCard icon="quote" label={locale === "ar" ? "طلبات التسعير" : "Quote requests"} value={canReceiveWork ? (locale === "ar" ? "متاحة" : "Available") : (locale === "ar" ? "متوقفة" : "Paused")} tone={canReceiveWork ? "green" : "gold"}/>
-        <MetricCard icon="receipt" label={locale === "ar" ? "طلبات الشراء" : "Purchase orders"} value={canReceiveOrders ? (locale === "ar" ? "متاحة" : "Available") : (locale === "ar" ? "متوقفة" : "Paused")} tone={canReceiveOrders ? "green" : "gold"}/>
-        <MetricCard icon="clock" label={locale === "ar" ? "نهاية الفترة الحالية" : "Current period ends"} value={dateLabel(accessEnd, locale)} tone="gray"/>
-      </div>
-
-      <PortalPanel title={locale === "ar" ? "تفاصيل حالة الحساب" : "Account status details"} subtitle={locale === "ar" ? "البيانات هنا للمتابعة فقط. اشتراك سعرلي وطلبات التحويل موجودة في صفحة الاشتراكات والدفع على الويب." : "This page is read-only. Saarly subscription and transfer requests live in the web subscriptions and payments page."}>
-        <div className="detail-list">
-          <div><span>{locale === "ar" ? "اعتماد المتجر" : "Store approval"}</span><StatusBadge value={approval} locale={locale}/></div>
-          <div><span>{locale === "ar" ? "حالة الحساب" : "Account status"}</span><StatusBadge value={access} locale={locale}/></div>
-          <div><span>{locale === "ar" ? "نظام المتجر" : "Store mode"}</span><strong>{statusLabel(status.pricing_mode || merchant.pricing_mode, locale)}</strong></div>
-          <div><span>{locale === "ar" ? "استقبال طلبات جديدة" : "Receiving new work"}</span><strong>{canReceiveWork ? (locale === "ar" ? "نعم" : "Yes") : (locale === "ar" ? "لا" : "No")}</strong></div>
-          <div><span>{locale === "ar" ? "استقبال طلبات الشراء" : "Receiving purchase orders"}</span><strong>{canReceiveOrders ? (locale === "ar" ? "نعم" : "Yes") : (locale === "ar" ? "لا" : "No")}</strong></div>
-          <div><span>{locale === "ar" ? "سبب التوقف" : "Pause reason"}</span><strong>{stopReason || (locale === "ar" ? "لا يوجد سبب مسجل" : "No recorded reason")}</strong></div>
-        </div>
-      </PortalPanel>
-
-      <PortalPanel title={locale === "ar" ? "ما الذي يحدث عند تغير الحالة؟" : "What changes when status changes?"}>
-        <div className="settings-links">
-          <div className="settings-link-static"><Icon name="quote"/><span><strong>{locale === "ar" ? "طلبات التسعير" : "Quote requests"}</strong><small>{locale === "ar" ? "عند إتاحة الاستقبال تظهر طلبات العملاء الجديدة في صفحة التسعير." : "When receiving is available, new buyer requests appear in the requests page."}</small></span></div>
-          <div className="settings-link-static"><Icon name="receipt"/><span><strong>{locale === "ar" ? "طلبات الشراء من العملاء" : "Buyer purchase orders"}</strong><small>{locale === "ar" ? "طلبات شراء المنتجات من المتجر تظل جزءًا من Saarly ولا يتم خلطها مع اشتراك المتجر في سعرلي." : "Buyer purchases from stores remain part of Saarly and are not mixed with merchant subscriptions to Saarly."}</small></span></div>
-          <div className="settings-link-static"><Icon name="mail"/><span><strong>{locale === "ar" ? "الدعم" : "Support"}</strong><small>{locale === "ar" ? "لو الحالة غير واضحة، افتح دعم سعرلي من صفحة الدعم بنفس الحساب." : "If the status is unclear, open Saarly support from the support page with the same account."}</small></span></div>
-        </div>
-      </PortalPanel>
+    <div className="metrics-grid account-status-metrics">
+      <MetricCard icon="shield" label={locale === "ar" ? "حالة الحساب" : "Account status"} value={statusLabel(access, locale)} note={statusLabel(approval, locale)}/>
+      <MetricCard icon="quote" label={locale === "ar" ? "استقبال الطلبات" : "Receiving requests"} value={canReceiveWork ? (locale === "ar" ? "مفعل" : "Enabled") : (locale === "ar" ? "متوقف" : "Paused")} tone={canReceiveWork ? "green" : "gold"}/>
     </div>
-  );
+
+    <PortalPanel title={locale === "ar" ? "تفاصيل الحساب" : "Account details"} subtitle={locale === "ar" ? "نفس تفاصيل حالة الحساب التي يعرضها تطبيق المتجر، للمتابعة فقط." : "The same read-only account status details shown in the merchant app."}>
+      <div className="detail-list">
+        {detailRows.map((item) => <div key={item.labelEn}><span>{locale === "ar" ? item.labelAr : item.labelEn}</span><strong>{item.value || "—"}</strong></div>)}
+      </div>
+    </PortalPanel>
+
+    {payload.account.isOwner ? <PortalPanel title={locale === "ar" ? "إدارة اشتراك سعرلي" : "Manage Saarly subscription"} subtitle={locale === "ar" ? "الدفع والتجديد متاحان في بوابة الويب فقط ولا يظهران داخل تطبيق الموبايل." : "Payment and renewal are available in the web portal only and are not exposed in the mobile app."}>
+      <div className="settings-links"><Link href="/merchant/subscriptions"><Icon name="card"/><span><strong>{locale === "ar" ? "الاشتراكات والدفع" : "Subscriptions & payments"}</strong><small>{locale === "ar" ? "الخطط، الخصومات، التحويل اليدوي وسجل المعاملات حسب إعدادات الإدارة." : "Plans, discounts, manual transfer, and transaction history according to Admin settings."}</small></span><Icon name="arrow"/></Link></div>
+    </PortalPanel> : null}
+  </div>;
 }

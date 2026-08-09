@@ -131,6 +131,33 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const initialQuery = text(params.get("q"));
+    const focusMerchantId = text(params.get("focus"));
+    if (!initialQuery && !focusMerchantId) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setTab("browse");
+      if (initialQuery) {
+        setMerchantQuery(initialQuery);
+        setLoadingStores(true);
+        void buyerPost("search_stores", { categoryId: "", query: initialQuery })
+          .then((result) => { if (!cancelled) setMerchants(rows(result)); })
+          .catch((error) => { if (!cancelled) notify(error instanceof Error ? error.message : "buyer_search_failed", "error"); })
+          .finally(() => { if (!cancelled) setLoadingStores(false); });
+      }
+      if (focusMerchantId) {
+        const merchant = rows(data.merchants).find((item) => text(item.merchant_id) === focusMerchantId);
+        if (merchant) void openStore(merchant);
+      }
+    }, 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  // Initial deep-link/search bootstrap intentionally runs for the loaded storefront payload.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const productId = new URLSearchParams(window.location.search).get("product");
     if (!productId) return;
     let cancelled = false;

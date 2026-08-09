@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost, portalUpload } from "@/components/merchant/portal-client";
 import { EmptyState, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { bool, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
+import { bool, money, numberValue, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
 type DeliveryChoice = "inherit" | "enabled" | "disabled";
@@ -50,11 +50,22 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
   const branches = rows(payload.data.branches);
   const cities = rows(payload.data.cities);
   const documents = rows(payload.data.documents);
+  const products = rows(payload.data.products);
+  const availability = rows(payload.data.availability);
+  const branchSales = rows(payload.data.branchSales);
+  const unassignedSales = payload.data.unassignedSales && typeof payload.data.unassignedSales === "object" ? payload.data.unassignedSales as PortalRow : null;
   const isOwner = payload.account.isOwner;
   const [form, setForm] = useState<BranchForm>(empty);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<UploadKind>("");
+  const [availabilityBranch, setAvailabilityBranch] = useState<PortalRow | null>(null);
+  const [unavailableIds, setUnavailableIds] = useState<Set<string>>(new Set());
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  const [savingBranchService, setSavingBranchService] = useState("");
+  const [freeDeliveryBranch, setFreeDeliveryBranch] = useState<PortalRow | null>(null);
+  const [freeDeliveryEnabled, setFreeDeliveryEnabled] = useState(false);
+  const [freeDeliveryMinimum, setFreeDeliveryMinimum] = useState("");
 
   const docMap = useMemo(() => {
     const map = new Map<string, PortalRow[]>();
@@ -64,6 +75,12 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
     });
     return map;
   }, [documents]);
+
+  const salesMap = useMemo(() => new Map(branchSales.map((item) => [text(item.branch_id), item])), [branchSales]);
+
+  function unavailableCount(branchId: string) {
+    return availability.filter((entry) => text(entry.branch_id) === branchId && entry.is_available === false).length;
+  }
 
   function edit(branch?: PortalRow) {
     if (!isOwner) return;
@@ -121,6 +138,9 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!isOwner) return;
+    if (!form.frontImageUrl) {
+      notify(locale === "ar" ? "أضف صورة واجهة الفرع قبل الإرسال للمراجعة." : "Add the branch storefront image before submitting for review.", "error"); return;
+    }
     if (!form.id && (!form.managerIdFrontPath || !form.managerIdBackPath)) {
       notify(locale === "ar" ? "ارفع وجه وظهر بطاقة مدير الفرع." : "Upload both sides of the branch manager ID.", "error"); return;
     }
@@ -144,6 +164,73 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
       setOpen(false); setForm(empty); await refresh();
     } catch (error) { notify(error instanceof Error ? error.message : "save_failed", "error"); }
     finally { setSaving(false); }
+  }
+
+  function openAvailability(branch: PortalRow) {
+    const branchId = text(branch.id);
+    setUnavailableIds(new Set(availability
+      .filter((entry) => text(entry.branch_id) === branchId && entry.is_available === false)
+      .map((entry) => text(entry.product_id))
+      .filter(Boolean)));
+    setAvailabilityBranch(branch);
+  }
+
+  function toggleAvailability(productId: string, available: boolean) {
+    setUnavailableIds((current) => {
+      const next = new Set(current);
+      if (available) next.delete(productId); else next.add(productId);
+      return next;
+    });
+  }
+
+  async function saveAvailability() {
+    const branchId = text(availabilityBranch?.id);
+    if (!branchId || products.length === 0) return;
+    setSavingAvailability(true);
+    try {
+      await portalPost("save_branch_availability", { branchId, unavailableProductIds: [...unavailableIds] });
+      notify(locale === "ar" ? "تم حفظ توفر المنتجات في الفرع." : "Branch product availability saved.", "success");
+      setAvailabilityBranch(null);
+      await refresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "availability_save_failed", "error"); }
+    finally { setSavingAvailability(false); }
+  }
+
+  async function setCraftsman(branch: PortalRow, available: boolean) {
+    const branchId = text(branch.id);
+    if (!branchId) return;
+    setSavingBranchService(`craftsman:${branchId}`);
+    try {
+      await portalPost("set_branch_craftsman", { branchId, available });
+      notify(available
+        ? (locale === "ar" ? "تم تفعيل توفر الفني في الفرع." : "Craftsperson availability enabled for this branch.")
+        : (locale === "ar" ? "تم إيقاف توفر الفني في الفرع." : "Craftsperson availability disabled for this branch."), "success");
+      await refresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "branch_craftsman_save_failed", "error"); }
+    finally { setSavingBranchService(""); }
+  }
+
+  function openFreeDelivery(branch: PortalRow) {
+    setFreeDeliveryBranch(branch);
+    setFreeDeliveryEnabled(bool(branch.free_delivery_enabled));
+    setFreeDeliveryMinimum(branch.free_delivery_minimum == null ? "" : text(branch.free_delivery_minimum));
+  }
+
+  async function saveFreeDelivery() {
+    const branchId = text(freeDeliveryBranch?.id);
+    if (!branchId) return;
+    if (freeDeliveryEnabled && numberValue(freeDeliveryMinimum) <= 0) {
+      notify(locale === "ar" ? "اكتب حدًا أدنى أكبر من صفر للتوصيل المجاني." : "Enter a minimum greater than zero for free delivery.", "error");
+      return;
+    }
+    setSavingBranchService(`delivery:${branchId}`);
+    try {
+      await portalPost("set_branch_free_delivery", { branchId, enabled: freeDeliveryEnabled, minimum: freeDeliveryEnabled ? Number(freeDeliveryMinimum) : null });
+      notify(locale === "ar" ? "تم حفظ إعداد التوصيل المجاني للفرع." : "Branch free-delivery settings saved.", "success");
+      setFreeDeliveryBranch(null);
+      await refresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "branch_free_delivery_save_failed", "error"); }
+    finally { setSavingBranchService(""); }
   }
 
   async function remove(branch: PortalRow) {
@@ -170,17 +257,31 @@ export function BranchesSection({ payload, locale, refresh, notify }: SectionPro
         const front = branchDocs.find((doc) => text(doc.kind) === "branch_manager_id_front");
         const back = branchDocs.find((doc) => text(doc.kind) === "branch_manager_id_back");
         const photo = text(branch.front_signed_url);
-        return <article className="branch-card" key={text(branch.id)} data-record-id={text(branch.id)}>
+        const branchId = text(branch.id);
+        const sales = salesMap.get(branchId);
+        const unavailable = unavailableCount(branchId);
+        return <article className="branch-card" key={branchId} data-record-id={branchId}>
           {photo ? <img className="branch-cover" src={photo} alt={text(branch.name)}/> : null}
           <header><span className="branch-icon"><Icon name="branch"/></span><div><h3>{text(branch.name)}</h3><p>{text(branch.governorate_name)} · {text(branch.city_name)}</p></div><StatusBadge value={branch.approval_status} locale={locale}/></header>
-          <div className="detail-list compact"><div><span>{locale === "ar" ? "هاتف المدير" : "Manager phone"}</span><strong>{text(branch.manager_mobile, "—")}</strong></div><div><span>{locale === "ar" ? "التوصيل" : "Delivery"}</span><strong>{branch.delivery_enabled == null ? (locale === "ar" ? "يتبع إعداد المتجر" : "Uses store setting") : bool(branch.delivery_enabled) ? (locale === "ar" ? "مفعّل" : "Enabled") : (locale === "ar" ? "غير مفعّل" : "Disabled")}</strong></div><div><span>{locale === "ar" ? "الفني" : "Craftsman"}</span><strong>{bool(branch.craftsman_available) ? (locale === "ar" ? "متاح" : "Available") : (locale === "ar" ? "غير متاح" : "Unavailable")}</strong></div><div><span>{locale === "ar" ? "مستندات المدير" : "Manager documents"}</span><span className="document-statuses"><StatusBadge value={front?.status ?? "pending"} locale={locale}/><StatusBadge value={back?.status ?? "pending"} locale={locale}/></span></div><div><span>{locale === "ar" ? "السجل التجاري" : "Commercial register"}</span><strong>{branch.uses_parent_commercial_register !== false ? (locale === "ar" ? "سجل المتجر الرئيسي" : "Main store register") : (locale === "ar" ? "سجل مستقل" : "Separate register")}</strong></div></div>
-          {bool(branch.free_delivery_enabled) ? <p className="muted-copy">{locale === "ar" ? `توصيل مجاني من ${text(branch.free_delivery_minimum, "0")} ${payload.account.currencyCode || "EGP"}` : `Free delivery from ${payload.account.currencyCode || "EGP"} ${text(branch.free_delivery_minimum, "0")}`}</p> : null}
+          <div className="detail-list compact"><div><span>{locale === "ar" ? "هاتف المدير" : "Manager phone"}</span><strong>{text(branch.manager_mobile, "—")}</strong></div><div><span>{locale === "ar" ? "التوصيل" : "Delivery"}</span><strong>{branch.delivery_enabled == null ? (locale === "ar" ? "يتبع إعداد المتجر" : "Uses store setting") : bool(branch.delivery_enabled) ? (locale === "ar" ? "مفعّل" : "Enabled") : (locale === "ar" ? "غير مفعّل" : "Disabled")}</strong></div><div><span>{locale === "ar" ? "منتجات غير متاحة" : "Unavailable products"}</span><strong>{unavailable === 0 ? (locale === "ar" ? "كل المنتجات متاحة" : "All products available") : unavailable}</strong></div><div><span>{locale === "ar" ? "إجمالي مبيعات الفرع" : "Branch sales"}</span><strong>{sales ? money(sales.total_sales, payload.account.currencyCode || "EGP", locale) : (locale === "ar" ? "لا توجد مبيعات بعد" : "No sales yet")}</strong></div><div><span>{locale === "ar" ? "الطلبات المؤكدة" : "Confirmed orders"}</span><strong>{numberValue(sales?.confirmed_orders_count)}</strong></div><div><span>{locale === "ar" ? "مستندات المدير" : "Manager documents"}</span><span className="document-statuses"><StatusBadge value={front?.status ?? "pending"} locale={locale}/><StatusBadge value={back?.status ?? "pending"} locale={locale}/></span></div><div><span>{locale === "ar" ? "السجل التجاري" : "Commercial register"}</span><strong>{branch.uses_parent_commercial_register !== false ? (locale === "ar" ? "سجل المتجر الرئيسي" : "Main store register") : (locale === "ar" ? "سجل مستقل" : "Separate register")}</strong></div></div>
+          {bool(branch.free_delivery_enabled) ? <p className="muted-copy">{locale === "ar" ? `توصيل مجاني من ${money(branch.free_delivery_minimum, payload.account.currencyCode || "EGP", locale)}` : `Free delivery from ${money(branch.free_delivery_minimum, payload.account.currencyCode || "EGP", locale)}`}</p> : null}
           {text(branch.rejection_reason) ? <p className="inline-error">{text(branch.rejection_reason)}</p> : null}
+          <label className="switch-row"><input type="checkbox" checked={bool(branch.craftsman_available)} disabled={savingBranchService === `craftsman:${branchId}`} onChange={(event) => void setCraftsman(branch, event.target.checked)}/><span><strong>{locale === "ar" ? "صنايعي متاح في هذا الفرع" : "Craftsperson available in this branch"}</strong><small>{bool(branch.craftsman_available) ? (locale === "ar" ? "مفعّل لهذا الفرع" : "Enabled for this branch") : (locale === "ar" ? "غير مفعّل لهذا الفرع" : "Disabled for this branch")}</small></span></label>
           <a className="button text-button full" target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${encodeURIComponent(`${text(branch.latitude)},${text(branch.longitude)}`)}`}><Icon name="location" size={17}/>{locale === "ar" ? "فتح الموقع على الخريطة" : "Open on map"}</a>
-          {isOwner ? <div className="branch-card-actions"><button className="button secondary full" type="button" disabled={saving} onClick={() => edit(branch)}><Icon name="edit" size={17}/>{locale === "ar" ? "تعديل الفرع" : "Edit branch"}</button><button className="button danger-button full" type="button" disabled={saving} onClick={() => void remove(branch)}><Icon name="trash" size={17}/>{locale === "ar" ? "حذف الفرع" : "Delete branch"}</button></div> : null}
+          <button className="button secondary full" type="button" onClick={() => openAvailability(branch)}><Icon name="box" size={17}/>{locale === "ar" ? "إدارة توفر المنتجات" : "Manage product availability"}</button>
+          {isOwner ? <><button className="button secondary full" type="button" disabled={Boolean(savingBranchService)} onClick={() => openFreeDelivery(branch)}><Icon name="truck" size={17}/>{locale === "ar" ? "إعداد التوصيل المجاني لهذا الفرع" : "Free delivery settings for this branch"}</button><div className="branch-card-actions"><button className="button secondary full" type="button" disabled={saving} onClick={() => edit(branch)}><Icon name="edit" size={17}/>{locale === "ar" ? "تعديل الفرع" : "Edit branch"}</button><button className="button danger-button full" type="button" disabled={saving} onClick={() => void remove(branch)}><Icon name="trash" size={17}/>{locale === "ar" ? "حذف الفرع" : "Delete branch"}</button></div></> : null}
         </article>;
       })}</div>}
     </PortalPanel>
+
+    {unassignedSales ? <PortalPanel title={locale === "ar" ? "مبيعات بدون فرع محدد" : "Unassigned branch sales"} subtitle={locale === "ar" ? "طلبات تاريخية لم يتم ربطها بفرع محدد." : "Historical orders that were not assigned to a branch."}><div className="detail-list compact"><div><span>{locale === "ar" ? "إجمالي المبيعات" : "Total sales"}</span><strong>{money(unassignedSales.total_sales, payload.account.currencyCode || "EGP", locale)}</strong></div><div><span>{locale === "ar" ? "الطلبات المؤكدة" : "Confirmed orders"}</span><strong>{numberValue(unassignedSales.confirmed_orders_count)}</strong></div></div></PortalPanel> : null}
+
+    {freeDeliveryBranch && isOwner ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal" role="dialog" aria-modal="true" aria-labelledby="branch-free-delivery-title"><header><div><span className="eyebrow"><Icon name="truck" size={17}/>{locale === "ar" ? "التوصيل المجاني" : "Free delivery"}</span><h2 id="branch-free-delivery-title">{locale === "ar" ? `إعدادات ${text(freeDeliveryBranch.name)}` : `${text(freeDeliveryBranch.name)} settings`}</h2></div><button className="icon-button" type="button" onClick={() => setFreeDeliveryBranch(null)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close"/></button></header><div className="portal-form"><label className="switch-row"><input type="checkbox" checked={freeDeliveryEnabled} disabled={Boolean(savingBranchService)} onChange={(event) => setFreeDeliveryEnabled(event.target.checked)}/><span><strong>{locale === "ar" ? "تفعيل التوصيل المجاني لهذا الفرع" : "Enable free delivery for this branch"}</strong><small>{locale === "ar" ? "يتم تطبيقه على طلبات هذا الفرع فقط." : "Applies only to orders fulfilled by this branch."}</small></span></label>{freeDeliveryEnabled ? <label>{locale === "ar" ? "الحد الأدنى لإجمالي المنتجات" : "Products subtotal minimum"}<input type="number" min="0.01" step="0.01" value={freeDeliveryMinimum} disabled={Boolean(savingBranchService)} onChange={(event) => setFreeDeliveryMinimum(event.target.value)}/></label> : null}<div className="modal-actions"><button className="button secondary" type="button" disabled={Boolean(savingBranchService)} onClick={() => setFreeDeliveryBranch(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button primary" type="button" disabled={Boolean(savingBranchService)} onClick={() => void saveFreeDelivery()}>{savingBranchService ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ الإعداد" : "Save setting")}</button></div></div></section></div> : null}
+
+    {availabilityBranch ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal" role="dialog" aria-modal="true" aria-labelledby="branch-availability-title"><header><div><span className="eyebrow"><Icon name="box" size={17}/>{locale === "ar" ? "توفر المنتجات" : "Product availability"}</span><h2 id="branch-availability-title">{locale === "ar" ? `منتجات ${text(availabilityBranch.name)}` : `${text(availabilityBranch.name)} products`}</h2></div><button className="icon-button" type="button" onClick={() => setAvailabilityBranch(null)} aria-label={locale === "ar" ? "إغلاق" : "Close"}><Icon name="close"/></button></header>
+      {products.length === 0 ? <EmptyState icon="box" title={locale === "ar" ? "أضف منتجات أولًا" : "Add products first"} body={locale === "ar" ? "لا توجد منتجات لإدارة توفرها في هذا الفرع." : "There are no products to manage for this branch."}/> : <div className="branch-product-availability-list">{products.map((product) => { const productId = text(product.id); const available = !unavailableIds.has(productId); return <label className="switch-row" key={productId}><input type="checkbox" checked={available} disabled={savingAvailability} onChange={(event) => toggleAvailability(productId, event.target.checked)}/><span><strong>{text(product.free_name)}</strong><small>{available ? (locale === "ar" ? "متاح في هذا الفرع" : "Available in this branch") : (locale === "ar" ? "غير متاح في هذا الفرع" : "Unavailable in this branch")}{` · ${text(product.quantity, "0")} ${text(product.unit)}`}</small></span></label>; })}</div>}
+      <div className="modal-actions"><button className="button secondary" type="button" onClick={() => setAvailabilityBranch(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button primary" type="button" disabled={products.length === 0 || savingAvailability} onClick={() => void saveAvailability()}>{savingAvailability ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ التوفر" : "Save availability")}</button></div>
+    </section></div> : null}
 
     {open && isOwner ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal wide" role="dialog" aria-modal="true"><header><div><span className="eyebrow"><Icon name="branch" size={17}/>{form.id ? (locale === "ar" ? "تعديل فرع" : "Edit branch") : (locale === "ar" ? "فرع جديد" : "New branch")}</span><h2>{locale === "ar" ? "بيانات الفرع ومديره" : "Branch and manager details"}</h2></div><button className="icon-button" type="button" onClick={() => setOpen(false)}><Icon name="close"/></button></header>
       <form className="portal-form" onSubmit={submit}>

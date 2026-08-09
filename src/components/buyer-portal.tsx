@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import { buyerGet } from "@/components/buyer/portal-client";
+import type { BuyerSectionProps } from "@/components/buyer/section-props";
+import { PortalAppShell, type PortalNavGroup, type PortalNavItem } from "@/components/portal-v2/portal-shell";
 import { BuyerAlertsSection } from "@/components/buyer/sections/alerts-section";
 import { BuyerFavoritesSection } from "@/components/buyer/sections/favorites-section";
 import { BuyerHomeSection } from "@/components/buyer/sections/home-section";
@@ -17,7 +19,6 @@ import { BuyerStoresSection } from "@/components/buyer/sections/stores-section";
 import { BuyerSupportSection } from "@/components/buyer/sections/support-section";
 import { humanError, text, type PortalPayload } from "@/components/merchant/portal-utils";
 import { useSitePreferences } from "@/components/site-preferences";
-import { buyerLinks } from "@/lib/content";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 const icons: Record<string, Parameters<typeof Icon>[0]["name"]> = {
@@ -42,7 +43,6 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
   const [payload, setPayload] = useState<PortalPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [mobileNav, setMobileNav] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const active = titles[section] ? section : "home";
 
@@ -98,21 +98,71 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
   const hasMerchantPortal = Boolean(payload.account.isOwner && payload.account.merchantId);
   const props = { payload, locale, refresh: load, notify };
 
-  return <main className="portal-app buyer-portal-app">
-    <aside className={`portal-sidebar ${mobileNav ? "open" : ""}`} aria-label={locale === "ar" ? "التنقل داخل حساب المشتري" : "Buyer portal navigation"}>
-      <div className="portal-brand"><Brand locale={locale} compact inverted/><button className="icon-button sidebar-close" onClick={() => setMobileNav(false)}><Icon name="close"/></button></div>
-      <div className="store-identity"><span className="store-avatar"><Icon name="receipt"/></span><div><strong>{text(profile.full_name, locale === "ar" ? "حساب المشتري" : "Buyer account")}</strong><small>{payload.account.email}</small></div></div>
-      <nav className="portal-navigation">{buyerLinks.map((link) => { const key = link.href === "/buyer" ? "home" : text(link.href.split("/").pop(), "home"); const isActive = key === active; return <Link key={link.href} href={link.href} className={isActive ? "active" : ""} aria-current={isActive ? "page" : undefined} onClick={() => setMobileNav(false)}><Icon name={icons[key] ?? "dashboard"}/><span>{locale === "ar" ? link.ar : link.en}</span>{key === "notifications" && unread > 0 ? <i>{unread}</i> : null}</Link>; })}</nav>
-      <div className="portal-sidebar-footer">{hasMerchantPortal ? <Link href="/merchant"><Icon name="store"/>{locale === "ar" ? "بوابة متجري" : "My store portal"}</Link> : <Link href="/merchant-register"><Icon name="store"/>{locale === "ar" ? "سجل متجرك" : "Register your store"}</Link>}<Link href="/"><Icon name="globe"/>{locale === "ar" ? "الموقع العام" : "Public website"}</Link></div>
-    </aside>
-    {mobileNav ? <button className="portal-overlay" onClick={() => setMobileNav(false)} aria-label={locale === "ar" ? "إغلاق القائمة" : "Close menu"}/> : null}
-    <section className="portal-main"><header className="portal-topbar"><div className="portal-topbar-leading"><button className="icon-button portal-menu" onClick={() => setMobileNav(true)}><Icon name="menu"/></button><span className="status-dot ok"/><span>{locale === "ar" ? `العملة: ${payload.account.currencyCode || "EGP"}` : `Currency: ${payload.account.currencyCode || "EGP"}`}</span></div><div className="portal-top-actions"><button className="icon-button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe"/><span>{locale === "ar" ? "EN" : "ع"}</span></button><button className="icon-button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"}/></button><button className="icon-button" onClick={() => void supabase?.auth.signOut().then(() => window.location.replace("/"))}><Icon name="logout"/><span>{locale === "ar" ? "خروج" : "Sign out"}</span></button></div></header>
-      <div className="portal-content"><header className="portal-page-head"><div><span className="page-icon"><Icon name={icons[active] ?? "dashboard"}/></span><div><h1>{locale === "ar" ? title.ar : title.en}</h1><p>{locale === "ar" ? title.bodyAr : title.bodyEn}</p></div></div><button className="button secondary compact" onClick={() => void load()}><Icon name="history" size={17}/>{locale === "ar" ? "تحديث" : "Refresh"}</button></header>
-        {active === "home" ? <BuyerHomeSection {...props}/> : active === "requests" ? <BuyerRequestsSection {...props}/> : active === "orders" ? <BuyerOrdersSection {...props}/> : active === "stores" ? <BuyerStoresSection {...props}/> : active === "favorites" ? <BuyerFavoritesSection {...props}/> : active === "alerts" ? <BuyerAlertsSection {...props}/> : active === "notifications" ? <BuyerNotificationsSection {...props}/> : active === "referrals" ? <BuyerReferralsSection {...props}/> : active === "support" ? <BuyerSupportSection {...props}/> : <BuyerSettingsSection {...props}/>} 
-      </div>
-    </section>
-    <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : toast.message}</span><button onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
-  </main>;
+  const navItems: Record<string, PortalNavItem> = {
+    home: { key: "home", href: "/buyer", ar: "الرئيسية", en: "Home", icon: "dashboard", hintAr: "ابدأ طلبًا وتابع آخر نشاط", hintEn: "Start a request and see recent activity" },
+    requests: { key: "requests", href: "/buyer/requests", ar: "طلباتي والعروض", en: "Requests & offers", icon: "quote", hintAr: "التسعير والمقارنة والموافقة", hintEn: "Quotes, comparison, and approval" },
+    favorites: { key: "favorites", href: "/buyer/favorites", ar: "المفضلة", en: "Favorites", icon: "target", hintAr: "المتاجر والمنتجات المحفوظة", hintEn: "Saved stores and products" },
+    stores: { key: "stores", href: "/buyer/stores", ar: "المتاجر", en: "Stores", icon: "store", hintAr: "المنتجات والسلة والطلب المباشر", hintEn: "Products, carts, and direct requests" },
+    settings: { key: "settings", href: "/buyer/settings", ar: "الإعدادات", en: "Settings", icon: "settings", hintAr: "الحساب والموقع واللغة", hintEn: "Account, location, and language" },
+    orders: { key: "orders", href: "/buyer/orders", ar: "الطلبات المقبولة", en: "Accepted orders", icon: "receipt", hintAr: "المتابعة والمحادثة والتقييم", hintEn: "Tracking, chat, and reviews" },
+    alerts: { key: "alerts", href: "/buyer/alerts", ar: "تنبيهات الأسعار", en: "Price alerts", icon: "bell", hintAr: "راقب تغيرات الأسعار", hintEn: "Watch price changes" },
+    notifications: { key: "notifications", href: "/buyer/notifications", ar: "الإشعارات", en: "Notifications", icon: "bell", badge: unread, hintAr: "تحديثات الحساب والطلبات", hintEn: "Account and request updates" },
+    referrals: { key: "referrals", href: "/buyer/referrals", ar: "ادعُ أصحابك", en: "Referrals", icon: "users", hintAr: "الرابط والمكافآت", hintEn: "Referral link and rewards" },
+    support: { key: "support", href: "/buyer/support", ar: "الدعم", en: "Support", icon: "quote", hintAr: "محادثة دعم سعرلي", hintEn: "Saarly support chat" },
+  };
+  const groups: PortalNavGroup[] = [
+    { key: "core", ar: "رحلة الشراء", en: "Buying journey", items: [navItems.home, navItems.requests, navItems.favorites, navItems.stores, navItems.settings] },
+    { key: "activity", ar: "المتابعة", en: "Activity", items: [navItems.orders, navItems.alerts, navItems.notifications] },
+    { key: "account", ar: "الحساب والمساعدة", en: "Account & help", items: [navItems.referrals, navItems.support] },
+  ];
+  const mobilePrimary = [navItems.home, navItems.requests, navItems.favorites, navItems.stores, navItems.settings];
+
+  return <>
+    <PortalAppShell
+      kind="buyer"
+      locale={locale}
+      activeKey={active}
+      groups={groups}
+      mobilePrimary={mobilePrimary}
+      identityTitle={text(profile.full_name, locale === "ar" ? "حساب المشتري" : "Buyer account")}
+      identitySubtitle={payload.account.email}
+      identityIcon="receipt"
+      statusLabel={locale === "ar" ? `العملة ${payload.account.currencyCode || "EGP"}` : `Currency ${payload.account.currencyCode || "EGP"}`}
+      pageIcon={icons[active] ?? "dashboard"}
+      title={locale === "ar" ? title.ar : title.en}
+      description={locale === "ar" ? title.bodyAr : title.bodyEn}
+      headerActions={<button className="button secondary compact" type="button" onClick={() => void load()}><Icon name="history" size={17}/>{locale === "ar" ? "تحديث" : "Refresh"}</button>}
+      utilityActions={<>
+        <Link className="portal-v2-icon-button portal-v2-notification-button" href="/buyer/notifications" aria-label={locale === "ar" ? "الإشعارات" : "Notifications"}><Icon name="bell" size={19}/>{unread > 0 ? <i>{unread > 99 ? "99+" : unread}</i> : null}</Link>
+        <button className="portal-v2-icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe" size={19}/><span>{locale === "ar" ? "EN" : "ع"}</span></button>
+        <button className="portal-v2-icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"} size={19}/></button>
+      </>}
+      sidebarFooter={<>
+        {hasMerchantPortal ? <Link href="/merchant"><Icon name="store" size={18}/><span>{locale === "ar" ? "بوابة متجري" : "My store portal"}</span></Link> : <Link href="/merchant-register"><Icon name="store" size={18}/><span>{locale === "ar" ? "سجل متجرك" : "Register your store"}</span></Link>}
+        <Link href="/"><Icon name="globe" size={18}/><span>{locale === "ar" ? "الموقع العام" : "Public website"}</span></Link>
+        <button type="button" onClick={() => void supabase?.auth.signOut().then(() => window.location.replace("/"))}><Icon name="logout" size={18}/><span>{locale === "ar" ? "تسجيل الخروج" : "Sign out"}</span></button>
+      </>}
+    >
+      <SectionRenderer section={active} {...props}/>
+    </PortalAppShell>
+    <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : toast.message}</span><button type="button" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
+  </>;
+}
+
+function SectionRenderer({ section, payload, locale, refresh, notify }: BuyerSectionProps & { section: string }) {
+  const props = { payload, locale, refresh, notify };
+  switch (section) {
+    case "requests": return <BuyerRequestsSection {...props}/>;
+    case "orders": return <BuyerOrdersSection {...props}/>;
+    case "stores": return <BuyerStoresSection {...props}/>;
+    case "favorites": return <BuyerFavoritesSection {...props}/>;
+    case "alerts": return <BuyerAlertsSection {...props}/>;
+    case "notifications": return <BuyerNotificationsSection {...props}/>;
+    case "referrals": return <BuyerReferralsSection {...props}/>;
+    case "support": return <BuyerSupportSection {...props}/>;
+    case "settings": return <BuyerSettingsSection {...props}/>;
+    default: return <BuyerHomeSection {...props}/>;
+  }
 }
 
 function BuyerState({ title, body, loading = false, action }: { title: string; body: string; loading?: boolean; action?: React.ReactNode }) {

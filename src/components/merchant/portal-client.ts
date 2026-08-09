@@ -31,12 +31,13 @@ export async function portalPost(action: string, data: PortalRow = {}) {
   return payload.data;
 }
 
-export async function portalUpload(kind: string, file: File, onProgress?: (value: number) => void) {
+export async function portalUpload(kind: string, file: File, onProgress?: (value: number) => void, fields: Record<string, string> = {}) {
   const token = await accessToken();
   onProgress?.(15);
   const body = new FormData();
   body.set("kind", kind);
   body.set("file", file);
+  for (const [key, value] of Object.entries(fields)) body.set(key, value);
   const response = await fetch("/api/merchant/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body });
   onProgress?.(90);
   const payload = await response.json();

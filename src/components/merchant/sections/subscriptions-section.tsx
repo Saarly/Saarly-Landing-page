@@ -72,6 +72,14 @@ export function SubscriptionsSection({ payload, locale, refresh, notify }: Secti
   const currentPlanName = text(locale === "ar" ? status.plan_name_ar || activeSubscription?.plan_name_ar : status.plan_name_en || activeSubscription?.plan_name_en, locale === "ar" ? "غير محددة" : "Not set");
   const billingModel = text(status.billing_model || activeSubscription?.billing_model, "monthly_subscription");
   const balanceDue = numberValue(status.balance_due || activeSubscription?.balance_due);
+  const selectedOriginalPrice = numberValue(selectedPlan?.monthly_price);
+  const selectedEffectivePrice = numberValue(selectedPlan?.effective_price, selectedOriginalPrice);
+  const selectedDiscountAmount = numberValue(selectedPlan?.discount_amount);
+  const selectedDiscountPercent = numberValue(selectedPlan?.discount_percent);
+  const selectedDiscountName = text(locale === "ar" ? selectedPlan?.discount_name_ar : selectedPlan?.discount_name_en);
+  const selectedAllowedMimeTypes = listText(selectedMethod?.allowed_mime_types);
+  const selectedMaxFileSize = numberValue(selectedMethod?.max_file_size_bytes, 5 * 1024 * 1024);
+  const proofAccept = (selectedAllowedMimeTypes.length ? selectedAllowedMimeTypes : ["image/jpeg", "image/png", "application/pdf"]).join(",");
 
   async function chooseBilling(preference: "monthly_subscription" | "commission") {
     setBusy(`billing:${preference}`);
@@ -87,9 +95,18 @@ export function SubscriptionsSection({ payload, locale, refresh, notify }: Secti
   }
 
   async function uploadProof(file: File) {
+    if (!selectedMethod) return;
+    if (selectedAllowedMimeTypes.length && !selectedAllowedMimeTypes.includes(file.type)) {
+      notify(locale === "ar" ? "نوع الملف غير مسموح لوسيلة التحويل المختارة." : "This file type is not allowed for the selected transfer method.", "error");
+      return;
+    }
+    if (selectedMaxFileSize > 0 && file.size > selectedMaxFileSize) {
+      notify(locale === "ar" ? `حجم الملف أكبر من الحد المسموح (${fileSize(selectedMaxFileSize, locale)}).` : `The file exceeds the allowed limit (${fileSize(selectedMaxFileSize, locale)}).`, "error");
+      return;
+    }
     setUploading(1);
     try {
-      const result = await portalUpload("subscription-payment-proof", file, setUploading);
+      const result = await portalUpload("subscription-payment-proof", file, setUploading, { manualPaymentMethodId: text(selectedMethod.id) });
       setManual((current) => ({ ...current, proofPath: result.path, proofName: file.name, idempotencyKey: newIdempotencyKey() }));
       notify(locale === "ar" ? "تم رفع إثبات التحويل." : "Transfer proof uploaded.", "success");
     } catch (error) {
@@ -152,12 +169,21 @@ export function SubscriptionsSection({ payload, locale, refresh, notify }: Secti
         {plans.length ? <div className="plan-grid">{plans.map((plan) => {
           const id = text(plan.id);
           const features = featureList(plan, locale);
+          const effectivePrice = numberValue(plan.effective_price, numberValue(plan.monthly_price));
+          const hasDiscount = Boolean(text(plan.discount_id)) && effectivePrice < numberValue(plan.monthly_price);
+          const discountName = text(locale === "ar" ? plan.discount_name_ar : plan.discount_name_en);
           return <article className={`plan-card ${id === text(selectedPlan?.id) ? "selected" : ""}`} key={id}>
             <span className="eyebrow"><Icon name="receipt" size={17}/>{text(plan.plan_code, locale === "ar" ? "باقة سعرلي" : "Saarly plan")}</span>
             <h3>{text(locale === "ar" ? plan.name_ar : plan.name_en)}</h3>
             <p>{text(locale === "ar" ? plan.description_ar : plan.description_en)}</p>
-            <span className="plan-price"><strong>{money(plan.monthly_price, plan.currency || currency, locale)}</strong>{numberValue(plan.old_price) > 0 ? <del>{money(plan.old_price, plan.currency || currency, locale)}</del> : null}<small>{locale === "ar" ? `${numberValue(plan.duration_days, 30)} يوم` : `${numberValue(plan.duration_days, 30)} days`}</small></span>
-            {features.length ? <ul>{features.slice(0, 6).map((feature) => <li key={feature}><Icon name="check" size={16}/>{feature}</li>)}</ul> : null}
+            {hasDiscount ? <span className="plan-discount-chip"><Icon name="star" size={15}/>{discountName || (locale === "ar" ? "خصم مفعّل" : "Active discount")}{numberValue(plan.discount_percent) > 0 ? ` · ${numberValue(plan.discount_percent)}%` : ""}</span> : null}
+            <span className="plan-price">
+              <strong>{money(effectivePrice, plan.currency || currency, locale)}</strong>
+              {hasDiscount ? <del>{money(plan.monthly_price, plan.currency || currency, locale)}</del> : numberValue(plan.old_price) > numberValue(plan.monthly_price) ? <del>{money(plan.old_price, plan.currency || currency, locale)}</del> : null}
+              <small>{locale === "ar" ? `${numberValue(plan.duration_days, 30)} يوم` : `${numberValue(plan.duration_days, 30)} days`}</small>
+            </span>
+            {hasDiscount && text(locale === "ar" ? plan.discount_description_ar : plan.discount_description_en) ? <p className="plan-discount-note">{text(locale === "ar" ? plan.discount_description_ar : plan.discount_description_en)}</p> : null}
+            {features.length ? <ul>{features.slice(0, 8).map((feature) => <li key={feature}><Icon name="check" size={16}/>{feature}</li>)}</ul> : null}
             <button className="button secondary full" type="button" disabled={!monthlyEnabled} onClick={() => setSelectedPlanId(id)}>{id === text(selectedPlan?.id) ? (locale === "ar" ? "الخطة المختارة" : "Selected plan") : (locale === "ar" ? "اختيار الخطة" : "Select plan")}</button>
           </article>;
         })}</div> : <EmptyState icon="receipt" title={locale === "ar" ? "لا توجد خطط مفعلة" : "No active plans"} body={locale === "ar" ? "عند تفعيل الخطط من لوحة الإدارة ستظهر هنا تلقائيًا." : "Plans enabled from Admin will appear here automatically."}/>}
@@ -173,12 +199,26 @@ export function SubscriptionsSection({ payload, locale, refresh, notify }: Secti
           </article>;
         })}</div> : <EmptyState icon="card" title={locale === "ar" ? "لا توجد وسائل تحويل مفعلة" : "No active transfer methods"} body={locale === "ar" ? "وسائل التحويل تُدار من لوحة الإدارة." : "Transfer methods are managed from Admin."}/>}
         {selectedMethod ? <form className="portal-form manual-payment-form" onSubmit={submitManualPayment}>
+          {selectedPlan ? <div className="subscription-checkout-summary">
+            <div>
+              <span>{locale === "ar" ? "الباقة المختارة" : "Selected plan"}</span>
+              <strong>{text(locale === "ar" ? selectedPlan.name_ar : selectedPlan.name_en)}</strong>
+              <small>{locale === "ar" ? `${numberValue(selectedPlan.duration_days, 30)} يوم` : `${numberValue(selectedPlan.duration_days, 30)} days`}</small>
+            </div>
+            <div className="subscription-checkout-price">
+              {selectedDiscountAmount > 0 ? <small>{selectedDiscountName || (locale === "ar" ? "خصم مفعّل" : "Active discount")}{selectedDiscountPercent > 0 ? ` · ${selectedDiscountPercent}%` : ""}</small> : null}
+              <strong>{money(selectedEffectivePrice, selectedPlan.currency || currency, locale)}</strong>
+              {selectedDiscountAmount > 0 ? <del>{money(selectedOriginalPrice, selectedPlan.currency || currency, locale)}</del> : null}
+            </div>
+          </div> : null}
+          {selectedDiscountAmount > 0 ? <Notice tone="success">{locale === "ar" ? "تم احتساب الخصم المفعّل من لوحة الإدارة في العرض المبدئي. القيمة النهائية تُثبَّت آليًا من الخادم عند إرسال طلب التحويل." : "The Admin-controlled discount is reflected in this preview. The server locks the final price when the transfer request is submitted."}</Notice> : null}
           <div className="payment-method-details">
             <strong>{locale === "ar" ? "بيانات التحويل" : "Transfer details"}</strong>
             <span>{text(selectedMethod.account_label)}: {text(selectedMethod.account_number)}</span>
             {text(selectedMethod.account_holder_name) ? <span>{locale === "ar" ? "اسم صاحب الحساب" : "Account holder"}: {text(selectedMethod.account_holder_name)}</span> : null}
             {text(locale === "ar" ? selectedMethod.instructions_ar : selectedMethod.instructions_en) ? <small>{text(locale === "ar" ? selectedMethod.instructions_ar : selectedMethod.instructions_en)}</small> : null}
             <small>{locale === "ar" ? "الحد الأقصى للملف" : "File limit"}: {fileSize(selectedMethod.max_file_size_bytes, locale)}</small>
+            <small>{locale === "ar" ? "الصيغ المسموحة" : "Allowed formats"}: {(selectedAllowedMimeTypes.length ? selectedAllowedMimeTypes : ["image/jpeg", "image/png", "application/pdf"]).map((item) => item.split("/").pop()?.toUpperCase()).join(" · ")}</small>
           </div>
           <div className="form-grid two">
             <label>{locale === "ar" ? "بريد التواصل" : "Contact email"}<input required type="email" value={manual.contactEmail} onChange={(event) => setManual({ ...manual, contactEmail: event.target.value })}/></label>
@@ -187,7 +227,7 @@ export function SubscriptionsSection({ payload, locale, refresh, notify }: Secti
           <label className="file-button button secondary compact">
             <Icon name="upload" size={17}/>
             {uploading ? `${uploading}%` : manual.proofName || (locale === "ar" ? "رفع إثبات التحويل" : "Upload transfer proof")}
-            <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={!manualAvailable || uploading > 0} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProof(file); event.currentTarget.value = ""; }}/>
+            <input type="file" accept={proofAccept} disabled={!manualAvailable || uploading > 0} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProof(file); event.currentTarget.value = ""; }}/>
           </label>
           <div className="form-actions"><button className="button primary" type="submit" disabled={!manualAvailable || !selectedPlan || !selectedMethod || !manual.proofPath || !manual.contactEmail || busy === "manual-payment"}>{busy === "manual-payment" ? (locale === "ar" ? "جارٍ الإرسال" : "Sending") : (locale === "ar" ? "إرسال للمراجعة" : "Send for review")}</button></div>
         </form> : null}

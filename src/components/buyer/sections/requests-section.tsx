@@ -11,6 +11,7 @@ type Tab = "offers" | "requests" | "rfq";
 type OfferSort = "ranking" | "cheapest" | "nearest" | "coverage" | "rating";
 type NewMode = "manual" | "image" | "pdf" | "voice";
 type DraftItem = { name: string; quantity: number; unit: string; confidence?: number | null; needsReview?: boolean };
+type OfferReviewState = { offer: PortalRow; preview: PortalRow; quantities: Record<string, string> };
 
 function initialItem(locale: "ar" | "en"): DraftItem { return { name: "", quantity: 1, unit: locale === "ar" ? "قطعة" : "piece" }; }
 
@@ -46,9 +47,16 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
   const [shippingCompanyId, setShippingCompanyId] = useState("");
   const [shippingWeight, setShippingWeight] = useState("1");
   const [shippingBusy, setShippingBusy] = useState(false);
+  const [offerReview, setOfferReview] = useState<OfferReviewState | null>(null);
+  const [offerReviewBusy, setOfferReviewBusy] = useState(false);
+  const [rejectResponse, setRejectResponse] = useState<PortalRow | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    try {
+      const savedScope = window.localStorage.getItem("saarly_buyer_search_scope_v1");
+      if (savedScope && ["city", "governorate", "country"].includes(savedScope)) setScope(savedScope);
+    } catch { /* browser storage is optional */ }
     const requested = new URLSearchParams(window.location.search).get("new") as NewMode | null;
     if (!requested || !["manual", "image", "pdf", "voice"].includes(requested)) return;
     const timer = window.setTimeout(() => {
@@ -212,6 +220,112 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
     finally { setShippingBusy(false); }
   }
 
+  async function openOfferReview(offer: PortalRow) {
+    const offerId = text(offer.id);
+    if (!offerId) return;
+    setOfferReviewBusy(true);
+    try {
+      const preview = row(await buyerPost("preview_offer_acceptance", { offerId }));
+      const quantities: Record<string, string> = {};
+      for (const item of rows(preview.items)) {
+        const itemId = text(item.offer_item_id);
+        if (itemId) quantities[itemId] = String(numberValue(item.requested_quantity, 1));
+      }
+      setOfferReview({ offer, preview, quantities });
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "offer_preview_failed", "error");
+    } finally { setOfferReviewBusy(false); }
+  }
+
+  function patchOfferQuantity(itemId: string, nextValue: string) {
+    setOfferReview((current) => current ? { ...current, quantities: { ...current.quantities, [itemId]: nextValue } } : current);
+  }
+
+  function reviewedOfferTotals(review: OfferReviewState) {
+    const previewItems = rows(review.preview.items);
+    let productsTotal = 0;
+    let invalid = false;
+    for (const item of previewItems) {
+      const id = text(item.offer_item_id);
+      const requested = numberValue(item.requested_quantity, 1);
+      const selected = Math.max(0, numberValue(review.quantities[id], requested));
+      const available = item.available_quantity === null || item.available_quantity === undefined ? null : numberValue(item.available_quantity);
+      const catalog = item.is_catalog_product === true;
+      const availableNow = item.is_available_now === true;
+      if (catalog && (!availableNow || selected <= 0 || available === null || selected > available)) invalid = true;
+      if (availableNow || !catalog) productsTotal += numberValue(item.current_unit_price) * selected;
+    }
+    const freeEnabled = review.preview.free_delivery_enabled === true;
+    const freeMinimum = review.preview.free_delivery_minimum === null || review.preview.free_delivery_minimum === undefined ? null : numberValue(review.preview.free_delivery_minimum);
+    const freeEligible = freeEnabled && freeMinimum !== null && productsTotal >= freeMinimum;
+    const baseDelivery = review.preview.delivery_cost === null || review.preview.delivery_cost === undefined ? null : numberValue(review.preview.delivery_cost);
+    const deliveryMethod = text(review.preview.delivery_method);
+    const quantitiesChanged = previewItems.some((item) => {
+      const id = text(item.offer_item_id);
+      return Math.abs(numberValue(review.quantities[id], numberValue(item.requested_quantity, 1)) - numberValue(item.requested_quantity, 1)) > 0.000001;
+    });
+    const deliveryCost = freeEligible ? 0 : deliveryMethod === "weight" && quantitiesChanged ? null : baseDelivery;
+    return { productsTotal, invalid, freeEligible, freeMinimum, deliveryCost, estimatedTotal: productsTotal + (deliveryCost ?? 0) };
+  }
+
+  async function acceptReviewedOffer() {
+    if (!offerReview) return;
+    const totals = reviewedOfferTotals(offerReview);
+    if (totals.invalid) {
+      notify(locale === "ar" ? "عدّل الكميات بحيث لا تتجاوز المخزون المتاح." : "Adjust quantities so they do not exceed available stock.", "error");
+      return;
+    }
+    const offerId = text(offerReview.offer.id);
+    const itemQuantities = rows(offerReview.preview.items).map((item) => ({
+      offer_item_id: text(item.offer_item_id),
+      quantity: numberValue(offerReview.quantities[text(item.offer_item_id)], numberValue(item.requested_quantity, 1)),
+    })).filter((item) => item.offer_item_id && item.quantity > 0);
+    setOfferReviewBusy(true);
+    try {
+      await buyerPost("accept_offer", { offerId, itemQuantities });
+      notify(locale === "ar" ? "تم قبول العرض، والطلب ظهر في الطلبات المقبولة." : "Offer accepted. The order is now in accepted orders.", "success");
+      setOfferReview(null);
+      await refresh();
+    } catch (error) {
+      try {
+        const preview = row(await buyerPost("preview_offer_acceptance", { offerId }));
+        const quantities: Record<string, string> = {};
+        for (const item of rows(preview.items)) quantities[text(item.offer_item_id)] = String(numberValue(item.requested_quantity, 1));
+        setOfferReview((current) => current ? { ...current, preview, quantities } : current);
+      } catch { /* keep the existing preview if refresh also fails */ }
+      notify(error instanceof Error ? error.message : "accept_offer_failed", "error");
+    } finally { setOfferReviewBusy(false); }
+  }
+
+  async function requestManualPricingForOffer() {
+    if (!offerReview) return;
+    const offerId = text(offerReview.offer.id);
+    const quoteItemIds = rows(offerReview.offer.items).map((item) => text(item.quote_item_id)).filter(Boolean);
+    if (!offerId || !quoteItemIds.length) return;
+    setOfferReviewBusy(true);
+    try {
+      await buyerPost("create_direct_rfq_from_offer", { offerId, quoteItemIds });
+      notify(locale === "ar" ? "تم إرسال قائمة الطلب كاملة للتسعير اليدوي." : "The full request was sent for manual pricing.", "success");
+      setOfferReview(null);
+      await refresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "manual_rfq_failed", "error"); }
+    finally { setOfferReviewBusy(false); }
+  }
+
+  async function confirmRejectRfqResponse() {
+    if (!rejectResponse) return;
+    const responseId = text(rejectResponse.id || rejectResponse.rfq_response_id);
+    if (!responseId) return;
+    setBusyId(`reject_rfq_response:${responseId}`);
+    try {
+      await buyerPost("reject_rfq_response", { rfqResponseId: responseId });
+      notify(locale === "ar" ? "تم رفض العرض السعري." : "The quote was rejected.", "success");
+      setRejectResponse(null);
+      await refresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "rfq_reject_failed", "error"); }
+    finally { setBusyId(""); }
+  }
+
   async function action(id: string, task: string, body: Record<string, unknown> = {}) {
     setBusyId(`${task}:${id}`);
     try {
@@ -221,14 +335,7 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
     finally { setBusyId(""); }
   }
 
-  function offerItemQuantities(offerItems: PortalRow[]) {
-    return offerItems
-      .map((item) => ({
-        offer_item_id: text(item.offer_item_id || item.id),
-        quantity: numberValue(item.requested_quantity || item.requested_quantity_snapshot || item.quantity_snapshot || item.quantity, 1),
-      }))
-      .filter((item) => item.offer_item_id && item.quantity > 0);
-  }
+
 
   return <div className="portal-section-stack">
     <div className="portal-subtabs"><button className={tab === "offers" ? "active" : ""} onClick={() => setTab("offers")}><Icon name="compare"/>{locale === "ar" ? `عروض مستلمة (${activeOffers.length})` : `Received offers (${activeOffers.length})`}</button><button className={tab === "requests" ? "active" : ""} onClick={() => setTab("requests")}><Icon name="quote"/>{locale === "ar" ? `قيد التسعير (${requests.length})` : `Pricing (${requests.length})`}</button><button className={tab === "rfq" ? "active" : ""} onClick={() => setTab("rfq")}><Icon name="store"/>{locale === "ar" ? `ردود المتاجر (${rfqResponses.length})` : `Store responses (${rfqResponses.length})`}</button><button className="button primary compact" type="button" onClick={() => { setMode("manual"); setAnalysisQuoteId(""); setItems([initialItem(locale)]); setNewOpen(true); }}><Icon name="plus"/>{locale === "ar" ? "طلب جديد" : "New request"}</button></div>
@@ -237,14 +344,37 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
       {requests.length ? <div className="buyer-request-list">{requests.map((request) => { const id = text(request.id); const quoteItems = rows(request.quote_items); const direct = text(request.delivery_type) === "direct"; return <article key={id} data-record-id={id} className="buyer-request-card"><header><div><strong>{direct ? (locale === "ar" ? `طلب مخصوص: ${text(row(request.direct_contact).store_name, "متجر")}` : `Direct request: ${text(row(request.direct_contact).store_name, "Store")}`) : (locale === "ar" ? `طلب #${id.slice(0, 8)}` : `Request #${id.slice(0, 8)}`)}</strong><small>{dateLabel(request.created_at, locale)}</small></div><StatusBadge value={request.ai_review_status} locale={locale}/></header><div className="request-item-summary">{quoteItems.map((item) => <span key={text(item.id)}>{text(item.requested_name)} × {numberValue(item.quantity)} {text(item.unit)}</span>)}</div>{row(request.direct_contact).contact_mobile ? <Notice tone="success" title={locale === "ar" ? "بيانات التواصل متاحة" : "Contact is available"}>{locale === "ar" ? `المتجر: ${text(row(request.direct_contact).store_name)} — ${text(row(request.direct_contact).contact_mobile)}` : `Store: ${text(row(request.direct_contact).store_name)} — ${text(row(request.direct_contact).contact_mobile)}`}</Notice> : null}<footer><button className="button secondary compact" disabled={busyId === `generate_offers:${id}`} onClick={() => void action(id, "generate_offers", { quoteRequestId: id })}>{locale === "ar" ? "تحديث العروض" : "Refresh offers"}</button>{!direct ? <button className="button secondary compact" disabled={busyId === `create_rfq:${id}`} onClick={() => void action(id, "create_rfq", { quoteRequestId: id })}>{locale === "ar" ? "اطلب ردود متاجر" : "Ask stores"}</button> : null}<button className="button danger-button compact" disabled={busyId === `delete_quote:${id}`} onClick={() => void action(id, "delete_quote", { quoteRequestId: id })}>{locale === "ar" ? "حذف" : "Delete"}</button></footer></article>; })}</div> : <EmptyState icon="quote" title={locale === "ar" ? "مفيش طلبات تسعير" : "No quote requests"} body={locale === "ar" ? "أنشئ طلبًا يدويًا أو ارفع صورة أو PDF أو تسجيلًا صوتيًا." : "Create a manual request or upload an image, PDF, or voice file."}/>} 
     </PortalPanel> : null}
 
-    {tab === "offers" ? <PortalPanel title={locale === "ar" ? "عروض مستلمة" : "Received offers"} subtitle={locale === "ar" ? "قارن التغطية والسعر والتوصيل قبل القبول." : "Compare coverage, price, and delivery before accepting."}>
+    {tab === "offers" ? <PortalPanel title={locale === "ar" ? "عروض مستلمة" : "Received offers"} subtitle={locale === "ar" ? "قارن التغطية والسعر والتوصيل، ثم افتح العرض لمراجعة المخزون والكميات قبل القبول." : "Compare coverage, price, and delivery, then review current stock and quantities before accepting."}>
       <div className="portal-toolbar offer-sort-toolbar"><label>{locale === "ar" ? "ترتيب العروض" : "Sort offers"}<select value={offerSort} onChange={(event) => setOfferSort(event.target.value as OfferSort)}><option value="ranking">{locale === "ar" ? "الترتيب الأنسب" : "Best match"}</option><option value="cheapest">{locale === "ar" ? "الأقل سعرًا" : "Lowest price"}</option><option value="nearest">{locale === "ar" ? "الأقرب" : "Nearest"}</option><option value="coverage">{locale === "ar" ? "أعلى تغطية" : "Highest coverage"}</option><option value="rating">{locale === "ar" ? "أعلى تقييم" : "Highest rating"}</option></select></label><span className="toolbar-count">{locale === "ar" ? `${sortedOffers.length} عرض` : `${sortedOffers.length} offers`}</span></div>
-      {sortedOffers.length ? <div className="offer-card-grid">{sortedOffers.map((offer) => { const id = text(offer.id); const offerItems = rows(offer.items); const reason = row(offer.ranking_reason); const distance = numberValue(reason.distance_km, -1); return <article key={id} data-record-id={text(offer.quote_request_id || id)} className="offer-card"><header><div><strong>{text(offer.store_name, locale === "ar" ? "عرض متجر" : "Store offer")}</strong><small>{locale === "ar" ? `تغطية ${numberValue(offer.coverage_percentage)}%` : `${numberValue(offer.coverage_percentage)}% coverage`}</small></div><StatusBadge value={offer.status} locale={locale}/></header><div className="offer-comparison-strip"><span><Icon name="money" size={16}/>{money(offer.total_price_snapshot, currency, locale)}</span>{distance >= 0 ? <span><Icon name="location" size={16}/>{locale === "ar" ? `${distance.toFixed(1)} كم` : `${distance.toFixed(1)} km`}</span> : null}<span><Icon name="check" size={16}/>{numberValue(offer.coverage_percentage)}%</span></div><div className="request-item-summary">{offerItems.map((item) => <span className={item.is_available === false ? "unavailable" : ""} key={text(item.id)}>{text(item.matched_name_snapshot || item.requested_name)} — {money(item.line_total_snapshot, currency, locale)}</span>)}</div><footer><button className="button primary full" disabled={busyId === `accept_offer:${id}`} onClick={() => void action(id, "accept_offer", { offerId: id, itemQuantities: offerItemQuantities(offerItems) })}><Icon name="check"/>{locale === "ar" ? "قبول العرض" : "Accept offer"}</button></footer></article>; })}</div> : <EmptyState icon="compare" title={locale === "ar" ? "لا توجد عروض مستلمة حاليًا" : "No received offers right now"} body={locale === "ar" ? "حدّث عروض الطلب أو أرسل طلبًا للمتاجر." : "Refresh request offers or ask stores to respond."}/>} 
+      {sortedOffers.length ? <div className="offer-card-grid">{sortedOffers.map((offer) => { const id = text(offer.id); const offerItems = rows(offer.items); const reason = row(offer.ranking_reason); const distance = numberValue(reason.distance_km, -1); const unavailable = offerItems.filter((item) => item.is_available === false).length; return <article key={id} data-record-id={text(offer.quote_request_id || id)} className="offer-card"><header><div><strong>{text(offer.merchant_name || offer.store_name, locale === "ar" ? "عرض متجر" : "Store offer")}</strong><small>{locale === "ar" ? `تغطية ${numberValue(offer.coverage_percentage)}%` : `${numberValue(offer.coverage_percentage)}% coverage`}</small></div><StatusBadge value={offer.status} locale={locale}/></header><div className="offer-comparison-strip"><span><Icon name="money" size={16}/>{money(offer.total_price_snapshot, currency, locale)}</span>{distance >= 0 ? <span><Icon name="location" size={16}/>{locale === "ar" ? `${distance.toFixed(1)} كم` : `${distance.toFixed(1)} km`}</span> : null}<span><Icon name="check" size={16}/>{numberValue(offer.coverage_percentage)}%</span></div>{unavailable ? <Notice tone="warning">{locale === "ar" ? `${unavailable} بند غير متوفر؛ تقدر تطلب تسعير يدوي للقائمة كاملة من التفاصيل.` : `${unavailable} item(s) unavailable; you can request manual pricing for the full list from details.`}</Notice> : null}<div className="request-item-summary">{offerItems.map((item) => <span className={item.is_available === false ? "unavailable" : ""} key={text(item.id)}>{text(item.matched_name_snapshot || item.requested_name_snapshot || item.requested_name)} — {money(item.line_total_snapshot, currency, locale)}</span>)}</div><footer><button className="button primary full" disabled={offerReviewBusy} onClick={() => void openOfferReview(offer)}><Icon name="info"/>{locale === "ar" ? "تفاصيل العرض" : "Offer details"}</button></footer></article>; })}</div> : <EmptyState icon="compare" title={locale === "ar" ? "لا توجد عروض مستلمة حاليًا" : "No received offers right now"} body={locale === "ar" ? "حدّث عروض الطلب أو أرسل طلبًا للمتاجر." : "Refresh request offers or ask stores to respond."}/>} 
     </PortalPanel> : null}
 
-    {tab === "rfq" ? <PortalPanel title={locale === "ar" ? "ردود المتاجر" : "Store responses"} subtitle={locale === "ar" ? "ردود التسعير اليدوية للطلبات العامة والمخصوصة." : "Manual store responses for broadcast and direct requests."}>
-      {rfqResponses.length ? <div className="offer-card-grid">{rfqResponses.map((response) => { const id = text(response.id || response.rfq_response_id); return <article className="offer-card" key={id} data-record-id={text(response.quote_request_id || response.rfq_request_id || id)}><header><div><strong>{text(response.store_name, locale === "ar" ? "رد متجر" : "Store response")}</strong><small>{dateLabel(response.submitted_at || response.created_at, locale)}</small></div><StatusBadge value={response.status || "submitted"} locale={locale}/></header><div className="offer-total"><span>{locale === "ar" ? "الإجمالي" : "Total"}</span><strong>{money(response.total_price || response.total_price_snapshot, currency, locale)}</strong></div>{text(response.notes) ? <p>{text(response.notes)}</p> : null}<footer><button className="button primary full" disabled={shippingBusy && text(shippingResponse.id || shippingResponse.rfq_response_id) === id} onClick={() => void openRfqAcceptance(response)}>{locale === "ar" ? "مراجعة الشحن والقبول" : "Review shipping & accept"}</button></footer></article>; })}</div> : <EmptyState icon="store" title={locale === "ar" ? "لسه مفيش ردود" : "No responses yet"} body={locale === "ar" ? "هتظهر ردود المتاجر هنا أول ما يرسلوها." : "Store responses will appear here when submitted."}/>} 
+    {tab === "rfq" ? <PortalPanel title={locale === "ar" ? "ردود المتاجر" : "Store responses"} subtitle={locale === "ar" ? "راجع التسعير والشحن، واقبل أو ارفض الرد مثل التطبيق." : "Review pricing and shipping, then accept or reject the response just like the app."}>
+      {rfqResponses.length ? <div className="offer-card-grid">{rfqResponses.map((response) => { const id = text(response.id || response.rfq_response_id); return <article className="offer-card" key={id} data-record-id={text(response.quote_request_id || response.rfq_request_id || id)}><header><div><strong>{text(response.store_name || response.merchant_name, locale === "ar" ? "رد متجر" : "Store response")}</strong><small>{dateLabel(response.submitted_at || response.created_at, locale)}</small></div><StatusBadge value={response.status || "submitted"} locale={locale}/></header><div className="offer-total"><span>{locale === "ar" ? "الإجمالي" : "Total"}</span><strong>{money(response.grand_total || response.total_price || response.total_price_snapshot, currency, locale)}</strong></div>{text(response.branch_name) ? <p>{locale === "ar" ? `الفرع: ${text(response.branch_name)}` : `Branch: ${text(response.branch_name)}`}</p> : null}{text(response.selected_shipping_company_name) ? <p>{locale === "ar" ? `الشحن: ${text(response.selected_shipping_company_name)}` : `Shipping: ${text(response.selected_shipping_company_name)}`}</p> : null}<footer><button className="button danger-button" disabled={busyId === `reject_rfq_response:${id}`} onClick={() => setRejectResponse(response)}>{locale === "ar" ? "رفض العرض" : "Reject quote"}</button><button className="button primary" disabled={shippingBusy && text(shippingResponse.id || shippingResponse.rfq_response_id) === id} onClick={() => void openRfqAcceptance(response)}>{locale === "ar" ? "مراجعة الشحن والقبول" : "Review shipping & accept"}</button></footer></article>; })}</div> : <EmptyState icon="store" title={locale === "ar" ? "لسه مفيش ردود" : "No responses yet"} body={locale === "ar" ? "هتظهر ردود المتاجر هنا أول ما يرسلوها." : "Store responses will appear here when submitted."}/>} 
     </PortalPanel> : null}
+
+    {offerReview ? (() => {
+      const review = offerReview;
+      const totals = reviewedOfferTotals(review);
+      const reason = row(review.offer.ranking_reason);
+      const previewItems = rows(review.preview.items);
+      const offerItems = rows(review.offer.items);
+      const unavailableOfferItems = offerItems.filter((item) => item.is_available === false);
+      const deliveryAvailable = review.preview.delivery_available === true;
+      const deliveryWeight = review.preview.delivery_weight_kg === null || review.preview.delivery_weight_kg === undefined ? null : numberValue(review.preview.delivery_weight_kg);
+      const deliveryLabel = text(review.preview.delivery_method) === "weight" && deliveryWeight !== null ? (locale === "ar" ? `تكلفة التوصيل بالوزن (${deliveryWeight} كجم)` : `Weight delivery (${deliveryWeight} kg)`) : (locale === "ar" ? "تكلفة التوصيل" : "Delivery cost");
+      return <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal wide offer-review-modal" role="dialog" aria-modal="true"><header><div><span className="eyebrow"><Icon name="compare"/>{locale === "ar" ? "تفاصيل العرض" : "Offer details"}</span><h2>{text(review.offer.merchant_name || review.offer.store_name, locale === "ar" ? "عرض متجر" : "Store offer")}</h2><p>{locale === "ar" ? "تم التحقق من المخزون الحالي قبل الموافقة. عدّل الكمية عند الحاجة." : "Current stock was checked before acceptance. Adjust quantities if needed."}</p></div><button className="icon-button" type="button" onClick={() => setOfferReview(null)}><Icon name="close"/></button></header>
+        <div className="offer-review-summary"><div><span>{locale === "ar" ? "إجمالي المنتجات" : "Items total"}</span><strong>{money(totals.productsTotal, currency, locale)}</strong></div><div><span>{deliveryLabel}</span><strong>{totals.freeEligible ? (locale === "ar" ? "مجاني" : "Free") : !deliveryAvailable ? (locale === "ar" ? "غير متاح" : "Not available") : totals.deliveryCost === null ? (locale === "ar" ? "يُحدّد عند الموافقة" : "Calculated on acceptance") : money(totals.deliveryCost, currency, locale)}</strong></div><div><span>{locale === "ar" ? "الإجمالي المتوقع" : "Estimated total"}</span><strong>{money(totals.estimatedTotal, currency, locale)}</strong></div><div><span>{locale === "ar" ? "نسبة التغطية" : "Coverage"}</span><strong>{numberValue(review.offer.coverage_percentage)}%</strong></div></div>
+        {reason.is_open === false || reason.open_today === false || reason.was_open_at_offer_generation === false ? <Notice tone="warning">{locale === "ar" ? "المتجر غير متاح اليوم، لذلك قد يتأخر التأكيد." : "The store is not available today, so confirmation may be delayed."}</Notice> : null}
+        {reason.location_fallback === true ? <Notice tone="warning">{locale === "ar" ? "هذا العرض من منطقة أخرى لأن النظام لم يجد عرضًا مطابقًا في منطقتك. بيانات المتجر والفرع تظهر بعد القبول." : "This offer is from another area because no matching local offer was found. Store and branch details appear after acceptance."}</Notice> : null}
+        <section className="offer-review-items"><h3>{locale === "ar" ? "بنود العرض" : "Offer items"}</h3>{previewItems.map((item) => { const id = text(item.offer_item_id); const requested = numberValue(item.requested_quantity, 1); const available = item.available_quantity === null || item.available_quantity === undefined ? null : numberValue(item.available_quantity); const selected = offerReview.quantities[id] ?? String(requested); const invalid = item.is_catalog_product === true && (item.is_available_now !== true || numberValue(selected) <= 0 || available === null || numberValue(selected) > available); return <article className={invalid ? "offer-review-item invalid" : "offer-review-item"} key={id}><div><strong>{text(item.product_name, locale === "ar" ? "منتج" : "Product")}</strong><small>{locale === "ar" ? `المطلوب ${requested} ${text(item.unit)}` : `Requested ${requested} ${text(item.unit)}`}</small>{item.is_catalog_product === true ? <small>{locale === "ar" ? `المتاح الآن: ${available ?? 0} ${text(item.unit)}` : `Available now: ${available ?? 0} ${text(item.unit)}`}</small> : <small>{locale === "ar" ? "بند خارج الكتالوج" : "Outside catalog item"}</small>}</div><div className="offer-review-price"><span>{money(item.current_unit_price, currency, locale)}</span>{item.is_catalog_product === true ? <label>{locale === "ar" ? "الكمية" : "Quantity"}<input type="number" min="0.0001" max={available ?? undefined} step="any" value={selected} onChange={(event) => patchOfferQuantity(id, event.target.value)}/></label> : null}</div></article>; })}</section>
+        {totals.invalid ? <Notice tone="warning">{locale === "ar" ? "عدّل الكميات المعلّمة بحيث تكون مساوية للمخزون الحالي أو أقل قبل الموافقة." : "Adjust highlighted quantities so they do not exceed current stock before accepting."}</Notice> : null}
+        {unavailableOfferItems.length ? <Notice tone="warning" title={locale === "ar" ? "في بنود غير متوفرة" : "Some items are unavailable"}>{locale === "ar" ? "تقدر تبعت قائمة الطلب كاملة لنفس المتجر علشان يسعّرها يدويًا." : "You can send the full request to the same store for manual pricing."}</Notice> : null}
+        <div className="modal-actions">{unavailableOfferItems.length ? <button className="button secondary" type="button" disabled={offerReviewBusy || reason.manual_rfq_pending === true} onClick={() => void requestManualPricingForOffer()}><Icon name="quote"/>{reason.manual_rfq_pending === true ? (locale === "ar" ? "في انتظار رد المتجر" : "Waiting for store response") : (locale === "ar" ? "اطلب تسعير يدوي" : "Request manual pricing")}</button> : null}<button className="button secondary" type="button" onClick={() => setOfferReview(null)}>{locale === "ar" ? "إغلاق" : "Close"}</button><button className="button primary" type="button" disabled={offerReviewBusy || totals.invalid || !previewItems.length} onClick={() => void acceptReviewedOffer()}>{offerReviewBusy ? (locale === "ar" ? "جارٍ القبول" : "Accepting") : (locale === "ar" ? "موافقة على العرض" : "Accept offer")}</button></div>
+      </section></div>;
+    })() : null}
+
+    {rejectResponse ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal compact-modal" role="dialog" aria-modal="true"><header><div><span className="eyebrow"><Icon name="close"/>{locale === "ar" ? "رفض العرض" : "Reject quote"}</span><h2>{locale === "ar" ? "رفض العرض؟" : "Reject this quote?"}</h2></div><button className="icon-button" type="button" onClick={() => setRejectResponse(null)}><Icon name="close"/></button></header><p>{text(rejectResponse.delivery_type) === "direct" ? (locale === "ar" ? "رفض العرض سينهي الطلب المخصوص. تقدر ترسل طلب جديد لاحقًا للحصول على سعر جديد." : "Rejecting this quote will finish the direct request. You can send a new request later for another price.") : (locale === "ar" ? "لن يتم إنشاء طلب من هذا العرض، وتقدر تراجع عروض المتاجر الأخرى." : "No order will be created from this quote. You can review other store offers.")}</p><div className="modal-actions"><button className="button secondary" type="button" onClick={() => setRejectResponse(null)}>{locale === "ar" ? "إلغاء" : "Cancel"}</button><button className="button danger-button" type="button" disabled={busyId.startsWith("reject_rfq_response:")} onClick={() => void confirmRejectRfqResponse()}>{locale === "ar" ? "تأكيد الرفض" : "Confirm rejection"}</button></div></section></div> : null}
 
     {newOpen ? <div className="portal-modal-backdrop"><section className="portal-modal buyer-request-modal"><header><div><span className="eyebrow"><Icon name="quote"/>{locale === "ar" ? "طلب تسعير جديد" : "New quote request"}</span><h2>{locale === "ar" ? "اكتب أو ارفع قائمة المنتجات" : "Enter or upload your item list"}</h2><p>{locale === "ar" ? "راجع كل عنصر قبل الإرسال؛ الأسعار لا تُستخرج من الفاتورة." : "Review every item before sending; invoice prices are not extracted."}</p></div><button className="icon-button" onClick={() => setNewOpen(false)}><Icon name="close"/></button></header><form className="portal-form" onSubmit={analysisQuoteId ? approveAnalysis : submitNew}>
       <div className="portal-subtabs request-source-tabs">{(["manual","image","pdf","voice"] as NewMode[]).map((source) => <button type="button" className={mode === source ? "active" : ""} key={source} onClick={() => { setMode(source); setAnalysisQuoteId(""); clearVoiceRecording(); setItems([initialItem(locale)]); }}>{source === "manual" ? (locale === "ar" ? "يدوي" : "Manual") : source === "image" ? (locale === "ar" ? "صورة" : "Image") : source.toUpperCase()}</button>)}</div>

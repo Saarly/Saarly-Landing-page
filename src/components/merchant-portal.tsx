@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import { AccountStatusSection } from "@/components/merchant/sections/account-status-section";
-import { BuyerModeSection } from "@/components/merchant/sections/buyer-mode-section";
 import { DeliverySection } from "@/components/merchant/sections/delivery-section";
 import { HoursSection } from "@/components/merchant/sections/hours-section";
 import { ImportsSection } from "@/components/merchant/sections/imports-section";
@@ -24,14 +23,14 @@ import { RequestsSection } from "@/components/merchant/sections/requests-section
 import { SettingsSection } from "@/components/merchant/sections/settings-section";
 import { StoreSection } from "@/components/merchant/sections/store-section";
 import { portalGet } from "@/components/merchant/portal-client";
+import { PortalAppShell, type PortalNavGroup, type PortalNavItem } from "@/components/portal-v2/portal-shell";
 import { Notice } from "@/components/merchant/portal-ui";
 import { humanError, numberValue, row, statusLabel, text, type PortalPayload } from "@/components/merchant/portal-utils";
 import { useSitePreferences } from "@/components/site-preferences";
-import { merchantLinks } from "@/lib/content";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 const sectionIcons: Record<string, Parameters<typeof Icon>[0]["name"]> = {
-  overview: "dashboard", store: "store", products: "box", imports: "upload", requests: "quote", orders: "receipt", branches: "branch", hours: "clock", delivery: "location", reports: "compare", reviews: "check", "account-status": "shield", subscriptions: "card", employees: "users", notifications: "bell", referrals: "target", support: "quote", buyer: "globe", settings: "settings",
+  overview: "dashboard", store: "store", products: "box", imports: "upload", requests: "quote", orders: "receipt", branches: "branch", hours: "clock", delivery: "location", reports: "compare", reviews: "check", "account-status": "shield", subscriptions: "card", employees: "users", notifications: "bell", referrals: "target", support: "quote", settings: "settings",
 };
 
 const sectionTitles: Record<string, { ar: string; en: string; bodyAr: string; bodyEn: string }> = {
@@ -52,7 +51,6 @@ const sectionTitles: Record<string, { ar: string; en: string; bodyAr: string; bo
   notifications: { ar: "الإشعارات", en: "Notifications", bodyAr: "افتح كل إشعار على الصفحة والطلب المقصود.", bodyEn: "Open every notification at its intended page and record." },
   referrals: { ar: "الدعوات والمكافآت", en: "Referrals and rewards", bodyAr: "الرابط والتسجيلات المؤكدة وحالة المكافأة.", bodyEn: "Referral link, confirmed registrations, and reward status." },
   support: { ar: "دعم سعرلي", en: "Saarly support", bodyAr: "محادثة واحدة متزامنة بين الموقع والتطبيق.", bodyEn: "One conversation synced between website and app." },
-  buyer: { ar: "وضع المشتري", en: "Buyer mode", bodyAr: "تصفح المتاجر والمنتجات بدون ظهور متجرك لنفسك.", bodyEn: "Browse stores and products while hiding your own store." },
   settings: { ar: "الإعدادات", en: "Settings", bodyAr: "اللغة والمظهر والدعم وإجراءات الحساب.", bodyEn: "Language, appearance, support, and account actions." },
 };
 
@@ -63,7 +61,7 @@ function permissionAllows(payload: PortalPayload, section: string) {
   if (payload.account.isOwner) return true;
   const permissions = row(payload.account.staff?.permissions);
   const aliases: Record<string, string[]> = {
-    overview: ["dashboard"], store: ["store"], products: ["products"], imports: ["imports", "products"], requests: ["rfqs"], orders: ["orders"], branches: ["branches"], hours: ["hours"], delivery: ["delivery"], reports: ["reports"], reviews: ["reports"], "account-status": ["account_status", "dashboard", "settings"], subscriptions: ["billing", "subscriptions", "account_status"], notifications: ["notifications", "dashboard"], referrals: ["referrals"], support: ["support"], buyer: ["buyer_mode"], settings: ["settings"],
+    overview: ["dashboard"], store: ["store"], products: ["products"], imports: ["imports", "products"], requests: ["rfqs"], orders: ["orders"], branches: ["branches"], hours: ["hours"], delivery: ["delivery"], reports: ["reports"], reviews: ["reports"], "account-status": ["billing"], subscriptions: ["billing", "subscriptions", "account_status"], notifications: ["notifications", "dashboard"], referrals: ["referrals"], support: ["support"], settings: ["settings"],
   };
   return (aliases[section] ?? []).some((key) => permissions[key] === true);
 }
@@ -74,9 +72,8 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
   const [payload, setPayload] = useState<PortalPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [mobileNav, setMobileNav] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const activeSection = sectionTitles[section] ? section : "overview";
+  const activeSection = sectionTitles[section] && section !== "buyer" ? section : "overview";
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -108,16 +105,6 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const navLinks = useMemo(() => {
-    if (!payload) return merchantLinks;
-    const pricingMode = text(payload.account.merchant.pricing_mode, "catalog");
-    return merchantLinks.filter((link) => {
-      const key = link.href === "/merchant" ? "overview" : (link.href.split("/").pop() ?? "overview");
-      if (pricingMode === "manual_quote" && ["products", "imports"].includes(key)) return false;
-      if (pricingMode === "catalog" && key === "requests" && !permissionAllows(payload, key)) return false;
-      return permissionAllows(payload, key);
-    });
-  }, [payload]);
   const unread = payload ? numberValue(payload.account.unreadNotifications, activeSection === "overview" ? numberValue(row(payload.data.counts).notifications) : 0) : 0;
 
   useEffect(() => {
@@ -145,24 +132,95 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
   const merchant = payload.account.merchant;
   const suspended = Boolean(merchant.manually_suspended_at);
 
-  return <main className="portal-app">
-    <aside className={`portal-sidebar ${mobileNav ? "open" : ""}`} aria-label={locale === "ar" ? "التنقل داخل بوابة المتجر" : "Merchant portal navigation"}>
-      <div className="portal-brand"><Brand locale={locale} compact inverted/><button className="icon-button sidebar-close" type="button" onClick={() => setMobileNav(false)} aria-label={locale === "ar" ? "إغلاق القائمة" : "Close menu"}><Icon name="close"/></button></div>
-      <div className="store-identity"><span className="store-avatar"><Icon name="store"/></span><div><strong>{text(merchant.store_name, locale === "ar" ? "متجرك" : "Your store")}</strong><small>{payload.account.isOwner ? (locale === "ar" ? "صاحب المتجر" : "Store owner") : text(payload.account.staff?.role_label, locale === "ar" ? "موظف" : "Staff")}</small></div></div>
-      <nav className="portal-navigation">{navLinks.map((link) => { const key = link.href === "/merchant" ? "overview" : (link.href.split("/").pop() ?? "overview"); const active = key === activeSection; return <Link key={link.href} href={link.href} className={active ? "active" : ""} aria-current={active ? "page" : undefined} onClick={() => setMobileNav(false)}><Icon name={sectionIcons[key] ?? "dashboard"}/><span>{locale === "ar" ? link.ar : link.en}</span>{key === "notifications" && unread > 0 ? <i>{unread}</i> : null}</Link>; })}</nav>
-      <div className="portal-sidebar-footer"><Link href="/support"><Icon name="mail"/>{locale === "ar" ? "الدعم" : "Support"}</Link><Link href="/"><Icon name="globe"/>{locale === "ar" ? "الموقع العام" : "Public website"}</Link></div>
-    </aside>
-    {mobileNav ? <button className="portal-overlay" type="button" aria-label={locale === "ar" ? "إغلاق القائمة" : "Close menu"} onClick={() => setMobileNav(false)}/> : null}
-    <section className="portal-main">
-      <header className="portal-topbar"><div className="portal-topbar-leading"><button className="icon-button portal-menu" type="button" onClick={() => setMobileNav(true)} aria-label={locale === "ar" ? "فتح القائمة" : "Open menu"}><Icon name="menu"/></button><span className={`status-dot ${suspended ? "danger" : "ok"}`}/><span>{suspended ? (locale === "ar" ? "موقوف" : "Suspended") : statusLabel(merchant.approval_status, locale)}</span></div><div className="portal-top-actions"><button className="icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")} aria-label={locale === "ar" ? "Switch to English" : "التبديل إلى العربية"}><Icon name="globe"/><span>{locale === "ar" ? "EN" : "ع"}</span></button><button className="icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label={locale === "ar" ? "تغيير المظهر" : "Change theme"}><Icon name={theme === "dark" ? "sun" : "moon"}/></button><button className="icon-button" type="button" onClick={() => void supabase?.auth.signOut().then(() => window.location.replace("/"))}><Icon name="logout"/><span>{locale === "ar" ? "خروج" : "Sign out"}</span></button></div></header>
-      <div className="portal-content">
-        <header className="portal-page-head"><div><span className="page-icon"><Icon name={sectionIcons[activeSection] ?? "dashboard"}/></span><div><h1>{locale === "ar" ? title.ar : title.en}</h1><p>{locale === "ar" ? title.bodyAr : title.bodyEn}</p></div></div><button className="button secondary compact" type="button" onClick={() => void load()}><Icon name="history" size={17}/>{locale === "ar" ? "تحديث" : "Refresh"}</button></header>
-        {suspended ? <Notice tone="danger" title={locale === "ar" ? "المتجر موقوف إداريًا" : "Store is administratively suspended"}>{text(merchant.suspension_reason, locale === "ar" ? "راجع الدعم أو البريد المسجل." : "Check support or the registered email.")}</Notice> : null}
-        <SectionRenderer section={activeSection} payload={payload} locale={locale} refresh={load} notify={notify}/>
-      </div>
-    </section>
+  const pricingMode = text(merchant.pricing_mode, "catalog");
+  const isBranchScopedStaff = !payload.account.isOwner && (payload.account.branchIds?.length ?? 0) > 0;
+  const allowed = (key: string) => {
+    if (pricingMode === "manual_quote" && ["products", "imports"].includes(key)) return false;
+    // Flutter intentionally omits account-status for staff restricted to specific branches.
+    if (key === "account-status" && isBranchScopedStaff) return false;
+    return permissionAllows(payload, key);
+  };
+  const item = (key: string, ar: string, en: string, href: string, icon: Parameters<typeof Icon>[0]["name"], hintAr: string, hintEn: string): PortalNavItem => ({
+    key, ar, en, href, icon, hintAr, hintEn,
+    ...(key === "notifications" && unread > 0 ? { badge: unread } : {}),
+  });
+  const nav: Record<string, PortalNavItem> = {
+    overview: item("overview", "الرئيسية", "Overview", "/merchant", "dashboard", "ملخص العمل والتنبيهات", "Business summary and alerts"),
+    requests: item("requests", "طلبات التسعير", "Quote requests", "/merchant/requests", "quote", "الطلبات العامة والمباشرة والردود", "Direct and marketplace quote work"),
+    orders: item("orders", "الطلبات", "Orders", "/merchant/orders", "receipt", "التأكيد والحالة ومحادثة العميل", "Confirmation, status, and buyer chat"),
+    products: item("products", "المنتجات", "Products", "/merchant/products", "box", "الأسعار والمخزون والصور", "Prices, inventory, and images"),
+    imports: item("imports", "استيراد المنتجات", "Product imports", "/merchant/imports", "upload", "Excel وCSV وسجل الاستيراد", "Excel, CSV, and import history"),
+    store: item("store", "بيانات المتجر", "Store profile", "/merchant/store", "store", "البيانات والأقسام والشارات", "Profile, categories, and badges"),
+    branches: item("branches", "الفروع", "Branches", "/merchant/branches", "branch", "الموقع والمستندات والتوفر", "Locations, documents, and availability"),
+    hours: item("hours", "مواعيد العمل", "Working hours", "/merchant/hours", "clock", "أيام وساعات استقبال العمل", "Days and operating hours"),
+    delivery: item("delivery", "التوصيل والشحن", "Delivery & shipping", "/merchant/delivery", "location", "التسعير وشركات الشحن", "Pricing and shipping companies"),
+    reports: item("reports", "التقارير", "Reports", "/merchant/reports", "compare", "المبيعات والنمو وأداء الفروع", "Sales, growth, and branch performance"),
+    reviews: item("reviews", "التقييمات", "Reviews", "/merchant/reviews", "check", "تقييمات العملاء الحقيقية", "Verified buyer reviews"),
+    employees: item("employees", "الموظفون", "Staff", "/merchant/employees", "users", "الصلاحيات والفروع المسموحة", "Permissions and branch access"),
+    subscriptions: item("subscriptions", "الاشتراكات والدفع", "Subscriptions & payments", "/merchant/subscriptions", "card", "الخطط والتحويلات من الويب فقط", "Plans and web-only payment flows"),
+    accountStatus: item("account-status", "حالة الحساب", "Account status", "/merchant/account-status", "shield", "الصلاحية واستقبال العمل", "Access and work receiving status"),
+    notifications: item("notifications", "الإشعارات", "Notifications", "/merchant/notifications", "bell", "طلبات وحساب وتنبيهات", "Orders, account, and alerts"),
+    referrals: item("referrals", "الدعوات", "Referrals", "/merchant/referrals", "target", "الرابط والتسجيلات والمكافآت", "Link, registrations, and rewards"),
+    support: item("support", "دعم سعرلي", "Saarly support", "/merchant/support", "quote", "محادثة الدعم المتزامنة", "Synced support conversation"),
+    settings: item("settings", "الإعدادات", "Settings", "/merchant/settings", "settings", "اللغة والمظهر وإدارة الحساب", "Language, appearance, and account"),
+  };
+  const show = (key: string) => allowed(key) ? [nav[key === "account-status" ? "accountStatus" : key]] : [];
+  // Keep the app's primary merchant journey in exactly the same logical order.
+  // Web-only/expanded management surfaces come after that core journey.
+  const groups: PortalNavGroup[] = [
+    {
+      key: "app-core", ar: "مساحة المتجر", en: "Store workspace",
+      items: [
+        nav.overview, ...show("orders"), ...show("requests"), ...show("products"), ...show("imports"),
+        ...show("hours"), ...show("delivery"), ...show("account-status"), ...show("referrals"),
+        ...show("branches"), ...show("settings"), ...show("support"),
+      ],
+    },
+    {
+      key: "web-expanded", ar: "إدارة موسعة على الويب", en: "Expanded web management",
+      items: [...show("store"), ...show("reports"), ...show("reviews"), ...show("employees"), ...show("subscriptions"), ...show("notifications")],
+    },
+  ].filter((group) => group.items.length > 0);
+  const mobilePrimary = [
+    nav.overview,
+    ...(allowed("orders") ? [nav.orders] : []),
+    ...(allowed("requests") ? [nav.requests] : []),
+    ...(allowed("products") ? [nav.products] : allowed("hours") ? [nav.hours] : allowed("branches") ? [nav.branches] : []),
+    ...(allowed("settings") ? [nav.settings] : allowed("support") ? [nav.support] : []),
+  ].slice(0, 5);
+
+  return <>
+    <PortalAppShell
+      kind="merchant"
+      locale={locale}
+      activeKey={activeSection}
+      groups={groups}
+      mobilePrimary={mobilePrimary}
+      identityTitle={text(merchant.store_name, locale === "ar" ? "متجرك" : "Your store")}
+      identitySubtitle={payload.account.isOwner ? (locale === "ar" ? "صاحب المتجر" : "Store owner") : text(payload.account.staff?.role_label, locale === "ar" ? "موظف" : "Staff")}
+      identityIcon="store"
+      statusLabel={suspended ? (locale === "ar" ? "المتجر موقوف" : "Store suspended") : statusLabel(merchant.approval_status, locale)}
+      statusTone={suspended ? "danger" : text(merchant.approval_status) === "approved" ? "ok" : "warning"}
+      pageIcon={sectionIcons[activeSection] ?? "dashboard"}
+      title={locale === "ar" ? title.ar : title.en}
+      description={locale === "ar" ? title.bodyAr : title.bodyEn}
+      headerActions={<button className="button secondary compact" type="button" onClick={() => void load()}><Icon name="history" size={17}/>{locale === "ar" ? "تحديث البيانات" : "Refresh"}</button>}
+      utilityActions={<>
+        {allowed("notifications") ? <Link className="portal-v2-icon-button portal-v2-notification-button" href="/merchant/notifications" aria-label={locale === "ar" ? "الإشعارات" : "Notifications"}><Icon name="bell" size={19}/>{unread > 0 ? <i>{unread > 99 ? "99+" : unread}</i> : null}</Link> : null}
+        <button className="portal-v2-icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe" size={19}/><span>{locale === "ar" ? "EN" : "ع"}</span></button>
+        <button className="portal-v2-icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"} size={19}/></button>
+      </>}
+      sidebarFooter={<>
+        <Link href="/"><Icon name="globe" size={18}/><span>{locale === "ar" ? "الموقع العام" : "Public website"}</span></Link>
+        {allowed("support") ? <Link href="/merchant/support"><Icon name="mail" size={18}/><span>{locale === "ar" ? "دعم سعرلي" : "Saarly support"}</span></Link> : null}
+        <button type="button" onClick={() => void supabase?.auth.signOut().then(() => window.location.replace("/"))}><Icon name="logout" size={18}/><span>{locale === "ar" ? "تسجيل الخروج" : "Sign out"}</span></button>
+      </>}
+    >
+      {suspended ? <Notice tone="danger" title={locale === "ar" ? "المتجر موقوف إداريًا" : "Store is administratively suspended"}>{text(merchant.suspension_reason, locale === "ar" ? "راجع دعم سعرلي لمعرفة التفاصيل." : "Contact Saarly support for details.")}</Notice> : null}
+      <SectionRenderer section={activeSection} payload={payload} locale={locale} refresh={load} notify={notify}/>
+    </PortalAppShell>
     <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : toast.message}</span><button type="button" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
-  </main>;
+  </>;
 }
 
 function SectionRenderer({ section, payload, locale, refresh, notify }: { section: string; payload: PortalPayload; locale: "ar" | "en"; refresh: () => Promise<void>; notify: (message: string, tone?: "success" | "error" | "info") => void }) {
@@ -184,7 +242,6 @@ function SectionRenderer({ section, payload, locale, refresh, notify }: { sectio
     case "notifications": return <NotificationsSection {...props}/>;
     case "referrals": return <ReferralsSection {...props}/>;
     case "support": return <SupportSection {...props}/>;
-    case "buyer": return <BuyerModeSection {...props}/>;
     case "settings": return <SettingsSection {...props}/>;
     default: return <OverviewSection payload={payload} locale={locale}/>;
   }
