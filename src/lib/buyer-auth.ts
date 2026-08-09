@@ -31,7 +31,7 @@ export async function requireBuyer(request: NextRequest): Promise<BuyerContext> 
   if (profileError) throw new PortalError("profile_load_failed", 500);
   if (!profile) throw new PortalError("profile_incomplete", 403);
   if (profile.is_blocked) throw new PortalError("account_blocked", 403);
-  if (!["buyer", "merchant"].includes(String(profile.role))) {
+  if (String(profile.role) !== "buyer") {
     throw new PortalError("buyer_access_required", 403);
   }
 
@@ -56,16 +56,6 @@ export async function requireBuyer(request: NextRequest): Promise<BuyerContext> 
     .maybeSingle();
   if (staffResult.error) throw new PortalError("staff_access_load_failed", 500);
 
-  if (profile.role === "merchant") {
-    if (!ownMerchant?.id) throw new PortalError("merchant_registration_required", 403);
-    if (ownMerchant.approval_status !== "approved") {
-      throw new PortalError(
-        ownMerchant.approval_status === "rejected" ? "merchant_registration_rejected" : "merchant_pending_approval",
-        403,
-      );
-    }
-    if (ownMerchant.manually_suspended_at) throw new PortalError("merchant_suspended", 403);
-  }
 
   const location = await userDb.rpc("my_buyer_location");
   const locationRow = location.error || !location.data || typeof location.data !== "object"

@@ -124,17 +124,28 @@ function normalizeHeader(value: string) {
     "price": "price", "السعر": "price",
     "quantity": "quantity", "qty": "quantity", "الكمية": "quantity",
     "unit": "unit", "الوحدة": "unit",
-    "brand": "brand", "الماركة": "brand", "العلامة التجارية": "brand",
-    "size": "size", "المقاس": "size",
-    "color": "color", "اللون": "color",
-    "category id": "categoryId", "category": "category", "القسم": "category", "معرف القسم": "categoryId",
-    "available": "isAvailable", "is available": "isAvailable", "availability": "isAvailable",
-    "shipping weight": "shippingWeightKg", "shipping weight kg": "shippingWeightKg", "weight": "shippingWeightKg", "weight kg": "shippingWeightKg",
-    "delivery pricing method": "deliveryPricingMethod", "delivery method": "deliveryPricingMethod", "shipping method": "deliveryPricingMethod",
+    "brand": "brand", "الماركة": "brand", "العلامة التجارية": "brand", "العلامة التجارية (اختياري)": "brand",
+    "size": "size", "المقاس": "size", "المقاس (اختياري)": "size",
+    "color": "color", "اللون": "color", "اللون (اختياري)": "color",
+    "category id": "categoryId", "category": "category", "subcategory": "category", "القسم": "category", "الفئة الفرعية": "category", "معرف القسم": "categoryId",
+    "available": "isAvailable", "is available": "isAvailable", "availability": "isAvailable", "متاح للبيع": "isAvailable",
+    "shipping weight": "shippingWeightKg", "shipping weight kg": "shippingWeightKg", "weight": "shippingWeightKg", "weight kg": "shippingWeightKg", "وزن الشحن كجم": "shippingWeightKg",
+    "delivery pricing method": "deliveryPricingMethod", "delivery method": "deliveryPricingMethod", "shipping method": "deliveryPricingMethod", "طريقة التوصيل للمنتج": "deliveryPricingMethod",
+    "image 1 url": "imageUrl1", "image url 1": "imageUrl1", "رابط الصورة 1": "imageUrl1",
+    "image 2 url": "imageUrl2", "image url 2": "imageUrl2", "رابط الصورة 2": "imageUrl2",
+    "image 3 url": "imageUrl3", "image url 3": "imageUrl3", "رابط الصورة 3": "imageUrl3",
+    "notes": "notes", "ملاحظات": "notes",
   };
   return map[normalized] ?? normalized.replace(/\s+/g, "");
 }
 
+
+function deliveryMethodCell(value: unknown) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (["weight", "by weight", "وزن", "بالوزن"].includes(normalized)) return "weight";
+  if (["zone", "area", "region", "منطقة", "منطقه"].includes(normalized)) return "zone";
+  return "flat";
+}
 function booleanCell(value: unknown, fallback = true) {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (!normalized) return fallback;
@@ -143,7 +154,11 @@ function booleanCell(value: unknown, fallback = true) {
   return fallback;
 }
 
-export function spreadsheetProducts(rows: string[][], categories: Array<{ id: string; ar: string; en: string }>) {
+export function spreadsheetProducts(
+  rows: string[][],
+  categories: Array<{ id: string; ar: string; en: string }>,
+  options: { includeInvalidRows?: boolean } = {},
+) {
   if (rows.length < 2) throw new Error("spreadsheet_has_no_data_rows");
   const headers = rows[0].map(normalizeHeader);
   return rows.slice(1).map((values) => {
@@ -164,7 +179,15 @@ export function spreadsheetProducts(rows: string[][], categories: Array<{ id: st
       categoryId: String(item.categoryId ?? "").trim(),
       isAvailable: booleanCell(item.isAvailable, true),
       shippingWeightKg: Number(String(item.shippingWeightKg ?? "0").replace(/[^0-9.-]/g, "")) || 0,
-      deliveryPricingMethod: String(item.deliveryPricingMethod ?? "").trim(),
+      deliveryPricingMethod: deliveryMethodCell(item.deliveryPricingMethod),
+      imageUrls: [item.imageUrl1, item.imageUrl2, item.imageUrl3].map((value) => String(value ?? "").trim()).filter(Boolean).slice(0, 3),
+      notes: String(item.notes ?? "").trim(),
     };
-  }).filter((item) => item.name.length >= 2);
+  }).filter((item) => {
+    const hasAnyData = Boolean(
+      item.name || item.price || item.quantity || item.categoryId || item.brand || item.size || item.color || item.shippingWeightKg || item.imageUrls.length || item.notes,
+    );
+    if (!hasAnyData) return false;
+    return options.includeInvalidRows ? true : item.name.length >= 2;
+  });
 }

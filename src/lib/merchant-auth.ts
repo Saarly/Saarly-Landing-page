@@ -156,7 +156,7 @@ export function canManage(context: MerchantContext, area: string) {
     delivery: ["delivery"],
     reports: ["reports"],
     reviews: ["reports", "reviews"],
-    "account-status": ["account_status", "dashboard", "settings"],
+    "account-status": ["billing"],
     subscriptions: ["billing", "subscriptions", "account_status"],
     notifications: ["notifications", "dashboard"],
     referrals: ["referrals"],
