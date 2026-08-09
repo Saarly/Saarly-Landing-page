@@ -50,8 +50,8 @@ test("merchant registration documents match the mobile registration file contrac
   assert.match(merchantRegistrationUpload, /MAX_DOCUMENT_BYTES = 5 \* 1024 \* 1024/);
   assert.match(merchantRegistrationUpload, /"image\/jpeg", "image\/png", "application\/pdf"/);
   assert.doesNotMatch(merchantRegistrationUpload, /image\/webp/);
-  assert.match(merchantForm, /JPG, PNG - up to 5 MB/);
-  assert.match(merchantForm, /JPG, PNG, PDF - up to 5 MB/);
+  assert.match(merchantForm, /Image file — up to 5 megabytes/);
+  assert.match(merchantForm, /Image or document — up to 5 megabytes/);
   assert.doesNotMatch(merchantForm, /image\/webp/);
   assert.match(merchantForm, /Clear file/);
 });

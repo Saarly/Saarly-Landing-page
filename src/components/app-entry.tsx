@@ -76,7 +76,7 @@ export function AppEntry() {
     ? (locale === "ar" ? "استخدم نفس حساب التطبيق كمشتري أو متجر." : "Use the same app account as a buyer or merchant.")
     : status === "blocked"
       ? humanError(error, locale)
-      : (locale === "ar" ? "بنراجع الجلسة ونوجهك للمساحة المناسبة." : "Checking the session and routing you to the right workspace.");
+      : (locale === "ar" ? "بنراجع حسابك ونفتح المكان المناسب." : "Checking your account and opening the right area.");
 
   return (
     <main className="portal-state">
@@ -85,7 +85,7 @@ export function AppEntry() {
         <div>
           <button className="icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}>
             <Icon name="globe" />
-            <span>{locale === "ar" ? "EN" : "ع"}</span>
+            <span>{locale === "ar" ? "الإنجليزية" : "Arabic"}</span>
           </button>
           <button className="icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
             <Icon name={theme === "dark" ? "sun" : "moon"} />

@@ -52,7 +52,7 @@ export function ReferralWorkspace({ dashboard, ads, locale, audience, notify }: 
       ? `جرّب سعرلي عبر هذا الرابط: ${url}\nرمز الدعوة: ${code}`
       : `Try Saarly using this link: ${url}\nInvite code: ${code}`;
     if (navigator.share) {
-      try { await navigator.share({ title: "Saarly", text: shareText, url }); return; } catch { /* user cancelled or browser refused */ }
+      try { await navigator.share({ title: locale === "ar" ? "سعرلي" : "Saarly", text: shareText, url }); return; } catch { /* user cancelled or browser refused */ }
     }
     await copy();
   }

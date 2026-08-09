@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { EmptyState, MetricCard, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { dateLabel, money, numberValue, row, rows, statusLabel, text, type PortalPayload, type PortalRow } from "@/components/merchant/portal-utils";
+import { dateLabel, localizedSystemText, money, numberValue, row, rows, statusLabel, text, unitLabel, type PortalPayload, type PortalRow } from "@/components/merchant/portal-utils";
 
 function growthName(item: PortalRow, locale: "ar" | "en") {
   return text(locale === "ar" ? item.name_ar : item.name_en, text(item.name || item.free_name, locale === "ar" ? "عنصر" : "Item"));
@@ -14,7 +14,7 @@ function GrowthSection({ title, items, currency, locale, moneyValue = true, empt
       const value = moneyValue && item.sales_total != null
         ? money(item.sales_total, currency, locale)
         : quantity != null
-          ? `${numberValue(quantity)}${text(item.unit) ? ` ${text(item.unit)}` : ""}`
+          ? `${numberValue(quantity)}${text(item.unit) ? ` ${unitLabel(item.unit, locale)}` : ""}`
           : item.orders_count != null ? String(numberValue(item.orders_count)) : "—";
       return <div key={`${growthName(item, locale)}-${index}`}><span>{growthName(item, locale)}</span><strong>{value}</strong></div>;
     })}</div> : <EmptyState icon="compare" title={empty} body={locale === "ar" ? "سيظهر المحتوى تلقائيًا عند توفر بيانات كافية." : "Content appears automatically when enough data is available."}/>} 
@@ -31,7 +31,7 @@ export function OverviewSection({ payload, locale }: { payload: PortalPayload; l
   const approval = text(payload.account.merchant.approval_status, "pending");
   const access = text(status.access_status, approval === "approved" ? "pre_launch_access" : approval);
   const canReceive = Boolean(status.can_receive_orders ?? status.can_receive_new_work);
-  const stopReason = text(status.stop_reason || payload.account.merchant.rejection_reason);
+  const stopReason = localizedSystemText(status.stop_reason || payload.account.merchant.rejection_reason, locale);
   const currency = text(data.currencyCode, payload.account.currencyCode || "EGP");
   const averageRating = numberValue(report.average_rating);
 
@@ -87,7 +87,7 @@ export function OverviewSection({ payload, locale }: { payload: PortalPayload; l
 
         <PortalPanel title={locale === "ar" ? "آخر الإشعارات" : "Latest notifications"} action={<Link href="/merchant/notifications">{locale === "ar" ? "عرض الكل" : "View all"}</Link>}>
           {notifications.length === 0 ? <EmptyState icon="bell" title={locale === "ar" ? "لا توجد إشعارات جديدة" : "No new notifications"} body={locale === "ar" ? "ستظهر هنا تحديثات الطلبات والحساب." : "Order and account updates will appear here."}/> : (
-            <div className="notification-mini-list">{notifications.map((item) => <article key={text(item.id)} className={item.is_read ? "" : "unread"}><span><Icon name="bell" size={18}/></span><div><strong>{text(locale === "ar" ? item.title_ar : item.title_en, text(item.type))}</strong><p>{text(locale === "ar" ? item.body_ar : item.body_en)}</p><small>{dateLabel(item.created_at, locale)}</small></div></article>)}</div>
+            <div className="notification-mini-list">{notifications.map((item) => <article key={text(item.id)} className={item.is_read ? "" : "unread"}><span><Icon name="bell" size={18}/></span><div><strong>{text(locale === "ar" ? item.title_ar : item.title_en, locale === "ar" ? "إشعار" : "Notification")}</strong><p>{text(locale === "ar" ? item.body_ar : item.body_en)}</p><small>{dateLabel(item.created_at, locale)}</small></div></article>)}</div>
           )}
         </PortalPanel>
       </div>

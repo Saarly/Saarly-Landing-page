@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost } from "@/components/merchant/portal-client";
 import { Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { bool, row, rows, statusLabel, text } from "@/components/merchant/portal-utils";
+import { bool, localizedSystemText, row, rows, statusLabel, text } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
 export function StoreSection({ payload, locale, refresh, notify }: SectionProps) {
@@ -56,7 +56,7 @@ export function StoreSection({ payload, locale, refresh, notify }: SectionProps)
 
   return (
     <div className="portal-section-stack">
-      {approval !== "approved" ? <Notice tone={approval === "rejected" ? "danger" : "warning"}>{approval === "rejected" ? (text(merchant.rejection_reason) || (locale === "ar" ? "تم رفض المتجر. راجع السبب وتواصل مع الدعم." : "The store was rejected. Review the reason and contact support.")) : (locale === "ar" ? "يمكن تعديل البيانات أثناء المراجعة، لكن التعديلات الجوهرية قد تحتاج مراجعة جديدة." : "Details can be edited during review, but material changes may require another review.")}</Notice> : null}
+      {approval !== "approved" ? <Notice tone={approval === "rejected" ? "danger" : "warning"}>{approval === "rejected" ? (localizedSystemText(merchant.rejection_reason, locale) || (locale === "ar" ? "تم رفض المتجر. راجع التفاصيل وتواصل مع الدعم." : "The store was rejected. Review the details and contact support.")) : (locale === "ar" ? "يمكن تعديل البيانات أثناء المراجعة، لكن التعديلات الجوهرية قد تحتاج مراجعة جديدة." : "Details can be edited during review, but material changes may require another review.")}</Notice> : null}
       <div className="portal-two-columns portal-store-grid">
         <PortalPanel title={locale === "ar" ? "بيانات المتجر" : "Store details"} subtitle={locale === "ar" ? "البيانات الأساسية الظاهرة داخل النظام." : "Core information used across the system."}>
           <form className="portal-form" onSubmit={submit}>
@@ -86,7 +86,7 @@ export function StoreSection({ payload, locale, refresh, notify }: SectionProps)
         <div className="category-selector">{categories.map((category) => {
           const id = text(category.id);
           const active = selected.has(id);
-          return <button type="button" className={active ? "active" : ""} key={id} onClick={() => toggleCategory(id)}><span className="category-check">{active ? <Icon name="check" size={16}/> : null}</span><div><strong>{text(locale === "ar" ? category.name_ar : category.name_en)}</strong><small>{text(category.slug)}</small></div></button>;
+          return <button type="button" className={active ? "active" : ""} key={id} onClick={() => toggleCategory(id)}><span className="category-check">{active ? <Icon name="check" size={16}/> : null}</span><div><strong>{text(locale === "ar" ? category.name_ar : category.name_en)}</strong></div></button>;
         })}</div>
         <div className="form-actions"><button className="button primary" type="button" disabled={saving} onClick={() => void save()}>{locale === "ar" ? "حفظ الأقسام" : "Save categories"}</button></div>
       </PortalPanel>

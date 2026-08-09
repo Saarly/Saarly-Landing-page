@@ -48,7 +48,7 @@ export function ReviewsSection({ payload, locale }: SectionProps) {
       </PortalPanel>
     </div>
 
-    <PortalPanel title={locale === "ar" ? `تقييمات العملاء (${visible.length})` : `Buyer reviews (${visible.length})`} subtitle={locale === "ar" ? "كل تقييم مرتبط بطلب حقيقي مكتمل. لا يتم إنشاء تقييمات وهمية داخل البوابة." : "Every review is tied to a real completed order. No synthetic reviews are generated in the portal."}>
+    <PortalPanel title={locale === "ar" ? `تقييمات العملاء (${visible.length})` : `Buyer reviews (${visible.length})`} subtitle={locale === "ar" ? "كل تقييم مرتبط بطلب حقيقي مكتمل، ولا نعرض إلا تقييمات العملاء الفعلية." : "Every review is tied to a real completed order, and only actual buyer reviews are shown."}>
       {visible.length ? <div className="review-grid expanded">{visible.map((review) => {
         const stars = Math.max(1, Math.min(5, Math.round(numberValue(review.stars))));
         return <article className="review-card premium" key={text(review.id)} data-record-id={text(review.id)}>

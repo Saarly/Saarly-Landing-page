@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost, portalUpload } from "@/components/merchant/portal-client";
 import { EmptyState, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { dateLabel, numberValue, row, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
+import { dateLabel, importSourceLabel, numberValue, row, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 import { downloadProductImportTemplate } from "@/lib/product-import-template";
 import { readSpreadsheet, spreadsheetProducts } from "@/lib/xlsx-lite";
@@ -44,7 +44,7 @@ function errorLabel(code: string, locale: "ar" | "en") {
     invalid_quantity: ["الكمية غير صحيحة", "Quantity is invalid"],
     missing_category: ["القسم مطلوب", "Category is required"],
   };
-  return (labels[code] ?? [code, code])[locale === "ar" ? 0 : 1];
+  return (labels[code] ?? ["يوجد خطأ في هذا الصف", "This row needs correction"])[locale === "ar" ? 0 : 1];
 }
 
 export function ImportsSection({ payload, locale, refresh, notify }: SectionProps) {
@@ -72,7 +72,7 @@ export function ImportsSection({ payload, locale, refresh, notify }: SectionProp
       if (!parsed.length) throw new Error("spreadsheet_has_no_data_rows");
       setFile(nextFile);
       setDrafts(parsed.map((item, index) => ({ ...item, rowNumber: index + 2 })));
-      notify(locale === "ar" ? "تمت قراءة الملف. راجع كل الصفوف قبل الاعتماد." : "File parsed. Review every row before approval.", "success");
+      notify(locale === "ar" ? "تمت قراءة الملف. راجع كل الصفوف قبل الاعتماد." : "The file is ready. Review every row before approval.", "success");
     } catch (error) { notify(error instanceof Error ? error.message : "import_preview_failed", "error"); }
     finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
   }
@@ -120,7 +120,7 @@ export function ImportsSection({ payload, locale, refresh, notify }: SectionProp
   }
 
   return <div className="portal-section-stack">
-    <PortalPanel title={locale === "ar" ? "استيراد المنتجات" : "Product imports"} subtitle={locale === "ar" ? "نزّل القالب ثم ارفع Excel أو CSV. مثل التطبيق، لا يتم اعتماد المنتجات قبل مراجعة الصفوف وتصحيح الأخطاء." : "Download the template, then upload Excel or CSV. Like the app, products are not approved until rows are reviewed and fixed."} action={<><input className="sr-only" ref={inputRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const selected = event.target.files?.[0]; if (selected) void previewFile(selected); }}/><button className="button secondary compact" type="button" onClick={() => downloadProductImportTemplate(locale, categories)}><Icon name="download" size={17}/>{locale === "ar" ? "تنزيل القالب" : "Download template"}</button><button className="button primary compact" disabled={busy} onClick={() => inputRef.current?.click()}><Icon name="upload" size={17}/>{busy ? (locale === "ar" ? "جارٍ القراءة" : "Reading") : (locale === "ar" ? "رفع Excel" : "Upload Excel")}</button></>}>
+    <PortalPanel title={locale === "ar" ? "استيراد المنتجات" : "Product imports"} subtitle={locale === "ar" ? "نزّل القالب ثم ارفع ملف جدول بيانات. مثل التطبيق، لا يتم اعتماد المنتجات قبل مراجعة الصفوف وتصحيح الأخطاء." : "Download the template, then upload a spreadsheet file. Like the app, products are not approved until rows are reviewed and fixed."} action={<><input className="sr-only" ref={inputRef} type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { const selected = event.target.files?.[0]; if (selected) void previewFile(selected); }}/><button className="button secondary compact" type="button" onClick={() => downloadProductImportTemplate(locale, categories)}><Icon name="download" size={17}/>{locale === "ar" ? "تنزيل القالب" : "Download template"}</button><button className="button primary compact" disabled={busy} onClick={() => inputRef.current?.click()}><Icon name="upload" size={17}/>{busy ? (locale === "ar" ? "جارٍ القراءة" : "Reading") : (locale === "ar" ? "رفع جدول بيانات" : "Upload spreadsheet")}</button></>}>
       {!file ? <EmptyState icon="upload" title={locale === "ar" ? "لا يوجد ملف للمراجعة" : "No file under review"} body={locale === "ar" ? "ارفع ملف المنتجات لعرض الصفوف هنا قبل الاعتماد." : "Upload a product file to review its rows here before approval."}/> : <div className="import-preview-shell">
         <header className="import-preview-header"><div><strong>{file.name}</strong><small>{locale === "ar" ? `${stats.valid} صحيح · ${stats.invalid} يحتاج تعديل` : `${stats.valid} valid · ${stats.invalid} need fixes`}</small></div><button className="icon-button" type="button" aria-label={locale === "ar" ? "إلغاء المعاينة" : "Clear preview"} onClick={() => { setFile(null); setDrafts([]); }}><Icon name="close"/></button></header>
         <div className="inline-actions"><span className="status-badge active">{locale === "ar" ? `صحيح: ${stats.valid}` : `Valid: ${stats.valid}`}</span>{stats.invalid ? <span className="status-badge rejected">{locale === "ar" ? `أخطاء: ${stats.invalid}` : `Errors: ${stats.invalid}`}</span> : null}<button className="button secondary compact" type="button" onClick={addRow}><Icon name="plus" size={16}/>{locale === "ar" ? "إضافة صف" : "Add row"}</button></div>
@@ -145,7 +145,7 @@ export function ImportsSection({ payload, locale, refresh, notify }: SectionProp
     </PortalPanel>
 
     <PortalPanel title={locale === "ar" ? "سجل الاستيراد" : "Import history"}>
-      {batches.length ? <div className="portal-table-wrap"><table className="portal-table"><thead><tr><th>{locale === "ar" ? "التاريخ" : "Date"}</th><th>{locale === "ar" ? "المصدر" : "Source"}</th><th>{locale === "ar" ? "الحالة" : "Status"}</th><th>{locale === "ar" ? "الصفوف الصحيحة" : "Valid rows"}</th><th>{locale === "ar" ? "الأخطاء" : "Errors"}</th></tr></thead><tbody>{batches.map((batch: PortalRow) => { const ai = row(batch.ai_result); return <tr key={text(batch.id)}><td>{dateLabel(batch.created_at, locale)}</td><td>{text(batch.source, locale === "ar" ? "ملف" : "File")}</td><td><StatusBadge value={batch.status} locale={locale}/></td><td>{numberValue(ai.valid_rows)}</td><td>{numberValue(ai.error_rows)}</td></tr>; })}</tbody></table></div> : <EmptyState title={locale === "ar" ? "لا توجد عمليات استيراد" : "No imports yet"} body={locale === "ar" ? "أول عملية اعتماد هتظهر هنا." : "The first approved import will appear here."}/>} 
+      {batches.length ? <div className="portal-table-wrap"><table className="portal-table"><thead><tr><th>{locale === "ar" ? "التاريخ" : "Date"}</th><th>{locale === "ar" ? "المصدر" : "Source"}</th><th>{locale === "ar" ? "الحالة" : "Status"}</th><th>{locale === "ar" ? "الصفوف الصحيحة" : "Valid rows"}</th><th>{locale === "ar" ? "الأخطاء" : "Errors"}</th></tr></thead><tbody>{batches.map((batch: PortalRow) => { const ai = row(batch.ai_result); return <tr key={text(batch.id)}><td>{dateLabel(batch.created_at, locale)}</td><td>{importSourceLabel(batch.source, locale)}</td><td><StatusBadge value={batch.status} locale={locale}/></td><td>{numberValue(ai.valid_rows)}</td><td>{numberValue(ai.error_rows)}</td></tr>; })}</tbody></table></div> : <EmptyState title={locale === "ar" ? "لا توجد عمليات استيراد" : "No imports yet"} body={locale === "ar" ? "أول عملية اعتماد هتظهر هنا." : "The first approved import will appear here."}/>} 
     </PortalPanel>
   </div>;
 }

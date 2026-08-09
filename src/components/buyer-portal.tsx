@@ -17,7 +17,7 @@ import { BuyerRequestsSection } from "@/components/buyer/sections/requests-secti
 import { BuyerSettingsSection } from "@/components/buyer/sections/settings-section";
 import { BuyerStoresSection } from "@/components/buyer/sections/stores-section";
 import { BuyerSupportSection } from "@/components/buyer/sections/support-section";
-import { humanError, text, type PortalPayload } from "@/components/merchant/portal-utils";
+import { currencyLabel, humanError, localizedSystemText, text, type PortalPayload } from "@/components/merchant/portal-utils";
 import { useSitePreferences } from "@/components/site-preferences";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
@@ -26,7 +26,7 @@ const icons: Record<string, Parameters<typeof Icon>[0]["name"]> = {
 };
 const titles: Record<string, { ar: string; en: string; bodyAr: string; bodyEn: string }> = {
   home: { ar: "الرئيسية", en: "Buyer home", bodyAr: "ملخص الطلبات والعروض والإشعارات وأسرع طرق بدء طلب جديد.", bodyEn: "A summary of requests, offers, notifications, and quick ways to start a new request." },
-  requests: { ar: "طلباتي والعروض", en: "Requests and offers", bodyAr: "طلب يدوي أو صورة أو PDF أو صوت، ثم مراجعة ومقارنة وقبول العروض.", bodyEn: "Manual, image, PDF, or voice requests, followed by review, comparison, and acceptance." },
+  requests: { ar: "طلباتي والعروض", en: "Requests and offers", bodyAr: "طلب يدوي أو صورة أو مستند أو تسجيل صوتي، ثم مراجعة ومقارنة وقبول العروض.", bodyEn: "Manual, image, document, or voice requests, followed by review, comparison, and acceptance." },
   orders: { ar: "الطلبات المقبولة", en: "Accepted orders", bodyAr: "تأكيدات المتاجر والبنود والتواصل والمحادثات والتقييمات.", bodyEn: "Store confirmations, items, contact details, chats, and reviews." },
   stores: { ar: "المتاجر والمنتجات", en: "Stores and products", bodyAr: "تصفح حسب القسم والموقع، واحفظ المفضلة والتنبيهات واطلب من متجر محدد.", bodyEn: "Browse by category and location, save favorites and alerts, and request from a specific store." },
   favorites: { ar: "المفضلة", en: "Favorites", bodyAr: "المتاجر والمنتجات وعمليات البحث المحفوظة في حسابك.", bodyEn: "Stores, products, and searches saved to your account." },
@@ -104,7 +104,7 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
   }, [payload, active]);
 
   if (loading) return <PortalBootstrapSkeleton kind="buyer" locale={locale}/>;
-  if (!payload) return <BuyerState title={locale === "ar" ? "تعذر فتح حساب المشتري" : "Could not open the buyer portal"} body={humanError(error, locale)} action={<div className="state-actions"><button className="button primary" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button><Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;
+  if (!payload) return <BuyerState locale={locale} title={locale === "ar" ? "تعذر فتح حساب المشتري" : "Could not open the buyer account"} body={humanError(error, locale)} action={<div className="state-actions"><button className="button primary" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button><Link className="button secondary" href="/support">{locale === "ar" ? "الدعم" : "Support"}</Link></div>}/>;
 
   const activePayloadReady = buyerPortalCache?.section === active;
   const profile = payload.account.profile;
@@ -142,14 +142,14 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
       identityTitle={text(profile.full_name, locale === "ar" ? "حساب المشتري" : "Buyer account")}
       identitySubtitle={payload.account.email}
       identityIcon="receipt"
-      statusLabel={locale === "ar" ? `العملة ${payload.account.currencyCode || "EGP"}` : `Currency ${payload.account.currencyCode || "EGP"}`}
+      statusLabel={locale === "ar" ? `العملة: ${currencyLabel(payload.account.currencyCode, locale)}` : `Currency: ${currencyLabel(payload.account.currencyCode, locale)}`}
       pageIcon={icons[active] ?? "dashboard"}
       title={locale === "ar" ? title.ar : title.en}
       description={locale === "ar" ? title.bodyAr : title.bodyEn}
       headerActions={<button className="button secondary compact" type="button" onClick={() => void load()}><Icon name="history" size={17}/>{locale === "ar" ? "تحديث" : "Refresh"}</button>}
       utilityActions={<>
         <Link className="portal-v2-icon-button portal-v2-notification-button" href="/buyer/notifications" aria-label={locale === "ar" ? "الإشعارات" : "Notifications"}><Icon name="bell" size={19}/>{unread > 0 ? <i>{unread > 99 ? "99+" : unread}</i> : null}</Link>
-        <button className="portal-v2-icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe" size={19}/><span>{locale === "ar" ? "EN" : "ع"}</span></button>
+        <button className="portal-v2-icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe" size={19}/><span>{locale === "ar" ? "الإنجليزية" : "Arabic"}</span></button>
         <button className="portal-v2-icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"} size={19}/></button>
       </>}
       sidebarFooter={<>
@@ -160,7 +160,7 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
     >
       {sectionLoading || !activePayloadReady ? <BuyerSectionLoading locale={locale}/> : error ? <div className="portal-inline-error"><Icon name="info" size={19}/><span>{humanError(error, locale)}</span><button className="button secondary compact" type="button" onClick={() => void load()}>{locale === "ar" ? "إعادة المحاولة" : "Try again"}</button></div> : <SectionRenderer section={active} {...props}/>}
     </PortalAppShell>
-    <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : toast.message}</span><button type="button" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
+    <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div className={`portal-toast ${toast.tone}`} key={toast.id}><Icon name={toast.tone === "success" ? "check" : "info"}/><span>{/^[a-z0-9_:. -]+$/i.test(toast.message) ? humanError(toast.message, locale) : localizedSystemText(toast.message, locale, locale === "ar" ? "تم تنفيذ الإجراء." : "The action was completed.")}</span><button type="button" onClick={() => setToasts((current) => current.filter((item) => item.id !== toast.id))}><Icon name="close" size={16}/></button></div>)}</div>
   </>;
 }
 
@@ -184,6 +184,6 @@ function SectionRenderer({ section, payload, locale, refresh, notify }: BuyerSec
   }
 }
 
-function BuyerState({ title, body, loading = false, action }: { title: string; body: string; loading?: boolean; action?: React.ReactNode }) {
-  return <main className="portal-state"><Brand locale="ar"/><section className="portal-state-card">{loading ? <span className="spinner"/> : <span className="page-icon"><Icon name="receipt"/></span>}<h1>{title}</h1><p>{body}</p>{action}</section></main>;
+function BuyerState({ locale, title, body, loading = false, action }: { locale: "ar" | "en"; title: string; body: string; loading?: boolean; action?: React.ReactNode }) {
+  return <main className="portal-state"><Brand locale={locale}/><section className="portal-state-card">{loading ? <span className="spinner"/> : <span className="page-icon"><Icon name="receipt"/></span>}<h1>{title}</h1><p>{body}</p>{action}</section></main>;
 }

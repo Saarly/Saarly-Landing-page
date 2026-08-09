@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { MetricCard, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { bool, dateLabel, numberValue, row, statusLabel, text } from "@/components/merchant/portal-utils";
+import { bool, dateLabel, localizedSystemText, numberValue, row, statusLabel, text } from "@/components/merchant/portal-utils";
 import type { SectionProps } from "@/components/merchant/section-props";
 
 export function AccountStatusSection({ payload, locale }: SectionProps) {
@@ -12,7 +12,7 @@ export function AccountStatusSection({ payload, locale }: SectionProps) {
   const approval = text(merchant.approval_status, "pending");
   const access = text(status.access_status || status.account_status, approval === "approved" ? "pre_launch_access" : approval);
   const canReceiveWork = bool(status.can_receive_new_work, bool(status.can_receive_orders, approval === "approved"));
-  const stopReason = text(status.stop_reason || merchant.rejection_reason);
+  const stopReason = localizedSystemText(status.stop_reason || merchant.rejection_reason, locale);
   const detailRows = [
     { labelAr: "طريقة التشغيل", labelEn: "Operating mode", value: statusLabel(status.pricing_mode || merchant.pricing_mode, locale) },
     { labelAr: "استقبال الطلبات", labelEn: "Receiving requests", value: canReceiveWork ? (locale === "ar" ? "مفعل" : "Enabled") : (locale === "ar" ? "متوقف" : "Paused") },
@@ -30,7 +30,7 @@ export function AccountStatusSection({ payload, locale }: SectionProps) {
   ];
 
   return <div className="portal-section-stack">
-    {!canReceiveWork ? <Notice tone="danger" title={locale === "ar" ? "استقبال الطلبات متوقف" : "New requests paused"}>{locale === "ar" ? "حساب المتجر غير نشط حاليًا، لذلك تم إيقاف استقبال الطلبات الجديدة. ما زال بإمكانك الدخول ومراجعة حالة الحساب." : "The store account is currently inactive, so new requests are paused. You can still access the portal and review account status."}</Notice> : null}
+    {!canReceiveWork ? <Notice tone="danger" title={locale === "ar" ? "استقبال الطلبات متوقف" : "New requests paused"}>{locale === "ar" ? "حساب المتجر غير نشط حاليًا، لذلك تم إيقاف استقبال الطلبات الجديدة. ما زال بإمكانك الدخول ومراجعة حالة الحساب." : "The store account is currently inactive, so new requests are paused. You can still sign in and review the account status."}</Notice> : null}
 
     <div className="metrics-grid account-status-metrics">
       <MetricCard icon="shield" label={locale === "ar" ? "حالة الحساب" : "Account status"} value={statusLabel(access, locale)} note={statusLabel(approval, locale)}/>
@@ -43,8 +43,8 @@ export function AccountStatusSection({ payload, locale }: SectionProps) {
       </div>
     </PortalPanel>
 
-    {payload.account.isOwner ? <PortalPanel title={locale === "ar" ? "إدارة اشتراك سعرلي" : "Manage Saarly subscription"} subtitle={locale === "ar" ? "الدفع والتجديد متاحان في بوابة الويب فقط ولا يظهران داخل تطبيق الموبايل." : "Payment and renewal are available in the web portal only and are not exposed in the mobile app."}>
-      <div className="settings-links"><Link href="/merchant/subscriptions"><Icon name="card"/><span><strong>{locale === "ar" ? "الاشتراكات والدفع" : "Subscriptions & payments"}</strong><small>{locale === "ar" ? "الخطط، الخصومات، التحويل اليدوي وسجل المعاملات حسب إعدادات الإدارة." : "Plans, discounts, manual transfer, and transaction history according to Admin settings."}</small></span><Icon name="arrow"/></Link></div>
+    {payload.account.isOwner ? <PortalPanel title={locale === "ar" ? "إدارة اشتراك سعرلي" : "Manage Saarly subscription"} subtitle={locale === "ar" ? "الدفع والتجديد متاحان في بوابة الموقع فقط ولا يظهران داخل تطبيق الهاتف." : "Payment and renewal are available on the website only and are not shown in the mobile app."}>
+      <div className="settings-links"><Link href="/merchant/subscriptions"><Icon name="card"/><span><strong>{locale === "ar" ? "الاشتراكات والدفع" : "Subscriptions & payments"}</strong><small>{locale === "ar" ? "الخطط، الخصومات، التحويل اليدوي وسجل المعاملات حسب الإعدادات الحالية." : "Plans, discounts, manual transfer, and transaction history follow the current settings."}</small></span><Icon name="arrow"/></Link></div>
     </PortalPanel> : null}
   </div>;
 }

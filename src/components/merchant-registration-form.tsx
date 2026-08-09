@@ -12,6 +12,7 @@ import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
 import {
   humanError,
+  localizedSystemText,
   row,
   rows,
   text,
@@ -127,7 +128,7 @@ function RegistrationShell({ children }: { children: React.ReactNode }) {
             onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
           >
             <Icon name="globe" />
-            <span>{locale === "ar" ? "EN" : "ع"}</span>
+            <span>{locale === "ar" ? "الإنجليزية" : "Arabic"}</span>
           </button>
           <button
             className="icon-button"
@@ -410,8 +411,8 @@ export function MerchantRegistrationForm() {
     if (!navigator.geolocation)
       return show(
         locale === "ar"
-          ? "المتصفح لا يدعم تحديد الموقع."
-          : "Location is not supported by this browser.",
+          ? "تحديد الموقع غير مدعوم على هذا الجهاز."
+          : "Location access is not supported on this device.",
         "error",
       );
     navigator.geolocation.getCurrentPosition(
@@ -424,8 +425,8 @@ export function MerchantRegistrationForm() {
       () =>
         show(
           locale === "ar"
-            ? "تعذر قراءة موقعك. اسمح للموقع باستخدام GPS أو اكتب الإحداثيات."
-            : "Could not read your location. Allow GPS or enter coordinates.",
+            ? "تعذر قراءة موقعك. اسمح للموقع باستخدام خدمة تحديد الموقع أو اكتب الإحداثيات."
+            : "Could not read your location. Allow location access or enter the coordinates.",
           "error",
         ),
       { enableHighAccuracy: true, timeout: 15000 },
@@ -445,7 +446,7 @@ export function MerchantRegistrationForm() {
       return show(
         locale === "ar"
           ? "ارفع وجهي بطاقة صاحب المتجر وصورة واجهة المتجر."
-          : "Upload both ID sides and the storefront photo.",
+          : "Upload both sides of the identity card and the storefront photo.",
         "error",
       );
     if (!form.categoryIds.length)
@@ -640,7 +641,7 @@ export function MerchantRegistrationForm() {
             <p>
               {locale === "ar"
                 ? "البيانات دي بتظهر للإدارة للمراجعة، والعميل مش بيشوف المستندات الخاصة."
-                : "These details are reviewed by administration. Private documents are never shown to buyers."}
+                : "These details are reviewed before approval. Private documents are never shown to buyers."}
             </p>
           </div>
           <Link className="button secondary" href="/merchant-login">
@@ -665,7 +666,7 @@ export function MerchantRegistrationForm() {
             {text(merchant.rejection_reason) ? (
               <span>
                 {locale === "ar" ? "سبب الرفض: " : "Rejection reason: "}
-                {text(merchant.rejection_reason)}
+                {localizedSystemText(merchant.rejection_reason, locale, locale === "ar" ? "تواصل مع الدعم لمعرفة التفاصيل." : "Contact support for details.")}
               </span>
             ) : null}
             {merchantStatus === "approved" ? (
@@ -1063,7 +1064,7 @@ export function MerchantRegistrationForm() {
                         "owner-id-front",
                         locale === "ar"
                           ? "وجه بطاقة صاحب المتجر"
-                          : "Owner ID front",
+                          : "Owner identity card front",
                         false,
                       ],
                       [
@@ -1071,7 +1072,7 @@ export function MerchantRegistrationForm() {
                         "owner-id-back",
                         locale === "ar"
                           ? "ظهر بطاقة صاحب المتجر"
-                          : "Owner ID back",
+                          : "Owner identity card back",
                         false,
                       ],
                       [
@@ -1104,8 +1105,8 @@ export function MerchantRegistrationForm() {
                             ? "تم الرفع"
                             : "Uploaded"
                           : imageOnly
-                            ? "JPG, PNG - up to 5 MB"
-                            : "JPG, PNG, PDF - up to 5 MB"}
+                            ? (locale === "ar" ? "ملف صورة — حتى 5 ميجابايت" : "Image file — up to 5 megabytes")
+                            : (locale === "ar" ? "صورة أو مستند — حتى 5 ميجابايت" : "Image or document — up to 5 megabytes")}
                       </small>
                       <input
                         type="file"

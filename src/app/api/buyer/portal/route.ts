@@ -200,7 +200,7 @@ async function supportConversationBundle(context: BuyerContext, requestedId?: st
     if (!ownership.data?.id) throw new PortalError("support_conversation_not_found", 404);
   } else {
     const start = await context.userDb.rpc("start_or_get_support_conversation", {
-      p_title: context.profile.preferred_language === "en" ? "Buyer web support" : "دعم المشتري من الموقع",
+      p_title: context.profile.preferred_language === "en" ? "Buyer support" : "دعم المشتري",
       p_locale: context.profile.preferred_language === "en" ? "en" : "ar",
     });
     if (start.error) throw new PortalError(start.error.message, 400);
@@ -343,7 +343,7 @@ async function createManualQuote(context: BuyerContext, body: Row) {
   const items = rawItems.map((item, index) => ({
     requested_name: value(item.name || item.requested_name).slice(0, 240),
     quantity: Math.max(0.0001, numberValue(item.quantity, 1)),
-    unit: value(item.unit).slice(0, 80) || "قطعة",
+    unit: value(item.unit).slice(0, 80) || (context.profile.preferred_language === "en" ? "piece" : "قطعة"),
     specifications: objectValue(item.specifications),
     ai_confidence: item.ai_confidence === null || item.ai_confidence === undefined ? null : Math.max(0, Math.min(1, numberValue(item.ai_confidence))),
     display_order: index + 1,
@@ -401,7 +401,7 @@ async function approveAnalyzedQuote(context: BuyerContext, body: Row) {
     quote_request_id: quoteId,
     requested_name: value(item.name || item.product_name || item.requested_name).slice(0, 240),
     quantity: Math.max(0.0001, numberValue(item.quantity, 1)),
-    unit: value(item.unit).slice(0, 80) || "قطعة",
+    unit: value(item.unit).slice(0, 80) || (context.profile.preferred_language === "en" ? "piece" : "قطعة"),
     specifications: objectValue(item.specifications),
     ai_confidence: item.confidence === null || item.confidence === undefined ? null : Math.max(0, Math.min(1, numberValue(item.confidence))),
     display_order: index + 1,

@@ -12,14 +12,14 @@ const messages: Record<string, { ar: string; en: string }> = {
   buyer_account_not_allowed: { ar: "هذا البريد مسجل كمشتري. استخدم بريد متجر مختلف.", en: "This email is registered as a buyer. Use a different merchant email." },
   account_blocked: { ar: "هذا الحساب موقوف. تواصل مع الدعم.", en: "This account is blocked. Contact support." },
   merchant_not_approved_for_staff: { ar: "لا يمكن للموظف الدخول قبل اعتماد المتجر.", en: "Staff cannot enter before the store is approved." },
-  merchant_pending_approval: { ar: "طلب المتجر ما زال قيد المراجعة. ستتمكن من دخول البوابة بعد الموافقة النهائية.", en: "The store application is still under review. Portal access starts after final approval." },
+  merchant_pending_approval: { ar: "طلب المتجر ما زال قيد المراجعة. ستتمكن من دخول البوابة بعد الموافقة النهائية.", en: "The store application is still under review. Store account access starts after final approval." },
   merchant_registration_rejected: { ar: "طلب تسجيل المتجر مرفوض. راجع سبب الرفض في التطبيق أو تواصل مع الدعم.", en: "The store application was rejected. Review the reason in the app or contact support." },
-  invalid_session: { ar: "انتهت الجلسة. حاول تسجيل الدخول مرة أخرى.", en: "The session expired. Sign in again." },
+  invalid_session: { ar: "انتهى تسجيل الدخول. حاول تسجيل الدخول مرة أخرى.", en: "Your sign-in expired. Sign in again." },
 };
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   const { locale, setLocale, theme, setTheme } = useSitePreferences();
-  return <main className="auth-page"><div className="auth-top"><Brand locale={locale}/><div><button className="icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe"/><span>{locale === "ar" ? "EN" : "ع"}</span></button><button className="icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"}/></button></div></div><div className="auth-layout"><aside><span className="eyebrow light"><Icon name="store"/>{locale === "ar" ? "بوابة المتاجر" : "Merchant portal"}</span><h1>{locale === "ar" ? "أدر متجرك من الكمبيوتر بنفس حساب التطبيق" : "Manage your store on desktop with the same app account"}</h1><p>{locale === "ar" ? "المنتجات والفروع والموظفون وطلبات التسعير وحالة الحساب في مكان واحد." : "Products, branches, staff, quote requests, and account status in one place."}</p><ul><li><Icon name="shield"/>{locale === "ar" ? "تحقق سيرفري من ارتباط الحساب بالمتجر" : "Server-side store-account verification"}</li><li><Icon name="desktop"/>{locale === "ar" ? "واجهة عملية للموبايل والكمبيوتر" : "Practical mobile and desktop interface"}</li><li><Icon name="receipt"/>{locale === "ar" ? "اشتراك سعرلي وإثباتات التحويل من الويب فقط لصاحب المتجر" : "Saarly subscription and transfer proofs are web-only for the store owner"}</li></ul></aside>{children}</div></main>;
+  return <main className="auth-page"><div className="auth-top"><Brand locale={locale}/><div><button className="icon-button" type="button" onClick={() => setLocale(locale === "ar" ? "en" : "ar")}><Icon name="globe"/><span>{locale === "ar" ? "الإنجليزية" : "Arabic"}</span></button><button className="icon-button" type="button" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"}/></button></div></div><div className="auth-layout"><aside><span className="eyebrow light"><Icon name="store"/>{locale === "ar" ? "بوابة المتاجر" : "Merchant portal"}</span><h1>{locale === "ar" ? "أدر متجرك من الكمبيوتر بنفس حساب التطبيق" : "Manage your store on desktop with the same app account"}</h1><p>{locale === "ar" ? "المنتجات والفروع والموظفون وطلبات التسعير وحالة الحساب في مكان واحد." : "Products, branches, staff, quote requests, and account status in one place."}</p><ul><li><Icon name="shield"/>{locale === "ar" ? "تحقق آمن من ارتباط الحساب بالمتجر" : "Secure store-account verification"}</li><li><Icon name="desktop"/>{locale === "ar" ? "واجهة عملية للموبايل والكمبيوتر" : "Practical mobile and desktop interface"}</li><li><Icon name="receipt"/>{locale === "ar" ? "اشتراك سعرلي وإثباتات التحويل من خلال الموقع فقط لصاحب المتجر" : "Saarly subscription and transfer proofs are available through the website only for the store owner"}</li></ul></aside>{children}</div></main>;
 }
 
 export function MerchantLoginForm() {
@@ -47,7 +47,7 @@ export function MerchantLoginForm() {
   async function sendCode(event?: FormEvent) {
     event?.preventDefault();
     if (!supabaseConfigured || !supabase) {
-      showMessage(locale === "ar" ? "إعداد الاتصال غير مكتمل." : "Connection is not configured.", "error");
+      showMessage(locale === "ar" ? "الخدمة غير متاحة حاليًا. حاول مرة أخرى بعد قليل." : "The service is temporarily unavailable. Try again shortly.", "error");
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
@@ -76,7 +76,7 @@ export function MerchantLoginForm() {
   async function verifyCode(event: FormEvent) {
     event.preventDefault();
     if (!supabaseConfigured || !supabase) {
-      showMessage(locale === "ar" ? "إعداد الاتصال غير مكتمل." : "Connection is not configured.", "error");
+      showMessage(locale === "ar" ? "الخدمة غير متاحة حاليًا. حاول مرة أخرى بعد قليل." : "The service is temporarily unavailable. Try again shortly.", "error");
       return;
     }
     const token = otp.replace(/\D/g, "");
@@ -135,7 +135,7 @@ export function MerchantLoginForm() {
             <label>{locale === "ar" ? "البريد الإلكتروني" : "Email"}<input required value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="info@example.com" /></label>
             <label className="remember-row">
               <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
-              <span><strong>{locale === "ar" ? "تذكرني على هذا الجهاز" : "Remember me on this device"}</strong><small>{locale === "ar" ? "عند إلغاء الاختيار تنتهي الجلسة عند إغلاق المتصفح." : "When unchecked, the session ends when the browser closes."}</small></span>
+              <span><strong>{locale === "ar" ? "تذكرني على هذا الجهاز" : "Remember me on this device"}</strong><small>{locale === "ar" ? "عند إلغاء الاختيار سيتم تسجيل خروجك بعد إغلاق نافذة التصفح." : "When unchecked, you will be signed out after you close the browsing window."}</small></span>
             </label>
             {message ? <p className={messageTone === "error" ? "form-error" : "form-notice"}>{message}</p> : null}
             <button className="button primary full" type="submit" disabled={saving}>{saving ? (locale === "ar" ? "جارٍ إرسال الرمز" : "Sending code") : (locale === "ar" ? "إرسال رمز الدخول" : "Send sign-in code")}<Icon name="mail" size={18} /></button>
@@ -169,7 +169,7 @@ export function ForgotPasswordForm() {
       <section className="auth-card">
         <span className="eyebrow"><Icon name="mail" />{locale === "ar" ? "دخول بدون كلمة مرور" : "Passwordless sign in"}</span>
         <h2>{locale === "ar" ? "مش محتاج تستعيد كلمة مرور" : "There is no password to recover"}</h2>
-        <p>{locale === "ar" ? "بوابة المتاجر تستخدم رمز دخول مؤقت يصل إلى بريدك. ارجع لصفحة الدخول، اكتب البريد، ثم أدخل الرمز المكوّن من 6 أرقام." : "The merchant portal uses a temporary code sent to your email. Return to sign in, enter your email, then use the 6-digit code."}</p>
+        <p>{locale === "ar" ? "تسجيل دخول المتجر يستخدم رمزًا مؤقتًا يصل إلى بريدك. ارجع لصفحة الدخول، اكتب البريد، ثم أدخل الرمز المكوّن من 6 أرقام." : "Store sign-in uses a temporary code sent to your email. Return to sign in, enter your email, then use the 6-digit code."}</p>
         <div className="auth-links auth-links-stacked"><Link className="button primary full" href="/merchant-login">{locale === "ar" ? "العودة لتسجيل الدخول" : "Back to sign in"}<Icon name="arrow" size={18} /></Link><Link href="/support">{locale === "ar" ? "تحتاج مساعدة من الدعم؟" : "Need help from support?"}</Link></div>
       </section>
     </AuthShell>

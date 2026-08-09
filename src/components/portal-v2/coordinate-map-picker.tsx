@@ -70,15 +70,16 @@ export function CoordinateMapPicker({
       width: String(IMAGE_WIDTH),
       height: String(IMAGE_HEIGHT),
       view: "Unified",
+      language: locale === "ar" ? "ar" : "en-GB",
     });
     return `https://api.tomtom.com/map/1/staticimage?${params.toString()}`;
-  }, [apiKey, lat, lng, zoom]);
+  }, [apiKey, lat, lng, zoom, locale]);
 
   async function reverseGeocode(nextLat: number, nextLng: number) {
     if (!apiKey) return undefined;
     setResolving(true);
     try {
-      const response = await fetch(`https://api.tomtom.com/search/2/reverseGeocode/${nextLat},${nextLng}.json?key=${encodeURIComponent(apiKey)}&language=${locale === "ar" ? "ar-EG" : "en-US"}`);
+      const response = await fetch(`https://api.tomtom.com/search/2/reverseGeocode/${nextLat},${nextLng}.json?key=${encodeURIComponent(apiKey)}&language=${locale === "ar" ? "ar" : "en-US"}`);
       if (!response.ok) return undefined;
       const data = await response.json() as { addresses?: Array<{ address?: Record<string, unknown> }> };
       const address = data.addresses?.[0]?.address ?? {};

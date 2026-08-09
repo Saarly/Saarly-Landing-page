@@ -40,6 +40,16 @@ export function bool(value: unknown, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+export function localizedSystemText(value: unknown, locale: "ar" | "en", fallback = "") {
+  const raw = text(value);
+  if (!raw) return fallback;
+  const hasArabic = /[\u0600-\u06FF]/.test(raw);
+  const hasLatin = /[A-Za-z]/.test(raw);
+  if (locale === "ar" && hasLatin && !hasArabic) return fallback;
+  if (locale === "en" && hasArabic && !hasLatin) return fallback;
+  return raw;
+}
+
 export function dateLabel(value: unknown, locale: "ar" | "en") {
   const raw = text(value);
   if (!raw) return locale === "ar" ? "غير محدد" : "Not set";
@@ -48,13 +58,80 @@ export function dateLabel(value: unknown, locale: "ar" | "en") {
   return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
+export function currencyLabel(currency: unknown, locale: "ar" | "en") {
+  const code = text(currency, "EGP").toUpperCase();
+  const labels: Record<string, { ar: string; en: string }> = {
+    EGP: { ar: "الجنيه المصري", en: "Egyptian pound" },
+    SAR: { ar: "الريال السعودي", en: "Saudi riyal" },
+    AED: { ar: "الدرهم الإماراتي", en: "UAE dirham" },
+    KWD: { ar: "الدينار الكويتي", en: "Kuwaiti dinar" },
+    QAR: { ar: "الريال القطري", en: "Qatari riyal" },
+    BHD: { ar: "الدينار البحريني", en: "Bahraini dinar" },
+    OMR: { ar: "الريال العماني", en: "Omani riyal" },
+    USD: { ar: "الدولار الأمريكي", en: "US dollar" },
+    EUR: { ar: "اليورو", en: "Euro" },
+  };
+  return labels[code]?.[locale] ?? (locale === "ar" ? "العملة المحلية" : "Local currency");
+}
+
+export function importSourceLabel(value: unknown, locale: "ar" | "en") {
+  const key = text(value).toLowerCase();
+  if (["excel", "xlsx", "csv", "spreadsheet"].includes(key)) return locale === "ar" ? "ملف جدول بيانات" : "Spreadsheet file";
+  if (key === "manual") return locale === "ar" ? "إدخال يدوي" : "Manual entry";
+  return locale === "ar" ? "ملف منتجات" : "Product file";
+}
+
+export function staffRoleLabel(value: unknown, locale: "ar" | "en") {
+  const raw = text(value);
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  const labels: Record<string, { ar: string; en: string }> = {
+    manager: { ar: "مدير", en: "Manager" },
+    branch_manager: { ar: "مدير فرع", en: "Branch manager" },
+    staff: { ar: "موظف", en: "Staff member" },
+    employee: { ar: "موظف", en: "Staff member" },
+    owner: { ar: "صاحب المتجر", en: "Store owner" },
+  };
+  return labels[key]?.[locale] ?? (raw || (locale === "ar" ? "موظف" : "Staff member"));
+}
+
+export function unitLabel(value: unknown, locale: "ar" | "en", fallback = "") {
+  const raw = text(value, fallback);
+  if (!raw) return locale === "ar" ? "وحدة" : "unit";
+  const key = raw.toLowerCase().trim().replace(/\./g, "").replace(/\s+/g, "_");
+  const labels: Record<string, { ar: string; en: string }> = {
+    piece: { ar: "قطعة", en: "piece" }, pcs: { ar: "قطعة", en: "piece" }, pc: { ar: "قطعة", en: "piece" }, unit: { ar: "قطعة", en: "piece" },
+    "قطعة": { ar: "قطعة", en: "piece" }, "قطع": { ar: "قطعة", en: "piece" },
+    kg: { ar: "كيلوجرام", en: "kilogram" }, kilogram: { ar: "كيلوجرام", en: "kilogram" }, kilograms: { ar: "كيلوجرام", en: "kilogram" },
+    "كجم": { ar: "كيلوجرام", en: "kilogram" }, "كيلوجرام": { ar: "كيلوجرام", en: "kilogram" }, "كيلو": { ar: "كيلوجرام", en: "kilogram" },
+    g: { ar: "جرام", en: "gram" }, gram: { ar: "جرام", en: "gram" }, grams: { ar: "جرام", en: "gram" }, "جم": { ar: "جرام", en: "gram" }, "جرام": { ar: "جرام", en: "gram" },
+    l: { ar: "لتر", en: "litre" }, liter: { ar: "لتر", en: "litre" }, liters: { ar: "لتر", en: "litre" }, litre: { ar: "لتر", en: "litre" }, litres: { ar: "لتر", en: "litre" }, "لتر": { ar: "لتر", en: "litre" },
+    m: { ar: "متر", en: "metre" }, meter: { ar: "متر", en: "metre" }, meters: { ar: "متر", en: "metre" }, metre: { ar: "متر", en: "metre" }, metres: { ar: "متر", en: "metre" }, "متر": { ar: "متر", en: "metre" },
+    cm: { ar: "سنتيمتر", en: "centimetre" }, centimeter: { ar: "سنتيمتر", en: "centimetre" }, centimetre: { ar: "سنتيمتر", en: "centimetre" }, "سم": { ar: "سنتيمتر", en: "centimetre" }, "سنتيمتر": { ar: "سنتيمتر", en: "centimetre" },
+    mm: { ar: "مليمتر", en: "millimetre" }, millimeter: { ar: "مليمتر", en: "millimetre" }, millimetre: { ar: "مليمتر", en: "millimetre" }, "مم": { ar: "مليمتر", en: "millimetre" }, "مليمتر": { ar: "مليمتر", en: "millimetre" },
+    box: { ar: "علبة", en: "box" }, "علبة": { ar: "علبة", en: "box" },
+    bag: { ar: "كيس", en: "bag" }, "كيس": { ar: "كيس", en: "bag" },
+    pack: { ar: "عبوة", en: "pack" }, package: { ar: "عبوة", en: "pack" }, "عبوة": { ar: "عبوة", en: "pack" },
+    roll: { ar: "لفة", en: "roll" }, "لفة": { ar: "لفة", en: "roll" },
+    set: { ar: "طقم", en: "set" }, "طقم": { ar: "طقم", en: "set" },
+    ton: { ar: "طن", en: "tonne" }, tonne: { ar: "طن", en: "tonne" }, "طن": { ar: "طن", en: "tonne" },
+  };
+  return labels[key]?.[locale] ?? raw;
+}
+
+export function paymentProviderLabel(value: unknown, locale: "ar" | "en") {
+  const key = text(value).toLowerCase();
+  const labels: Record<string, { ar: string; en: string }> = {
+    visa: { ar: "بطاقات الدفع", en: "Payment cards" },
+    wallet: { ar: "المحافظ الإلكترونية", en: "Electronic wallets" },
+    vodafone_cash: { ar: "فودافون كاش", en: "Vodafone Cash" },
+    meeza: { ar: "ميزة", en: "Meeza" },
+  };
+  return labels[key]?.[locale] ?? (locale === "ar" ? "طريقة دفع" : "Payment method");
+}
+
 export function money(value: unknown, currency: unknown = "EGP", locale: "ar" | "en" = "ar") {
-  const currencyCode = text(currency, "EGP").toUpperCase();
-  try {
-    return new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-GB", { style: "currency", currency: currencyCode, maximumFractionDigits: 2 }).format(numberValue(value));
-  } catch {
-    return `${numberValue(value).toFixed(2)} ${currencyCode}`;
-  }
+  const amount = new Intl.NumberFormat(locale === "ar" ? "ar-EG" : "en-GB", { maximumFractionDigits: 2, minimumFractionDigits: 0 }).format(numberValue(value));
+  return `${amount} ${currencyLabel(currency, locale)}`;
 }
 
 export const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
@@ -83,11 +160,11 @@ export const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
   completed: { ar: "مكتمل", en: "Completed" },
   cancelled_by_merchant: { ar: "ألغاه المتجر", en: "Cancelled by store" },
   open: { ar: "مفتوح", en: "Open" },
-  bot: { ar: "المساعد الآلي", en: "AI assistant" },
+  bot: { ar: "المساعد الآلي", en: "Automated assistant" },
   transferred: { ar: "مع خدمة العملاء", en: "With customer support" },
   connected: { ar: "متصل", en: "Connected" },
-  configured: { ar: "معدّ", en: "Configured" },
-  not_configured: { ar: "غير معدّ", en: "Not configured" },
+  configured: { ar: "جاهز", en: "Ready" },
+  not_configured: { ar: "غير جاهز", en: "Not ready" },
   in_support: { ar: "مع فريق الدعم", en: "With support" },
   escalated: { ar: "تم التصعيد", en: "Escalated" },
   resolved: { ar: "تم الحل", en: "Resolved" },
@@ -100,7 +177,7 @@ export const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
   zone: { ar: "حسب المنطقة", en: "By zone" },
   weight: { ar: "حسب الوزن", en: "By weight" },
   uploaded: { ar: "تم الرفع", en: "Uploaded" },
-  parsing: { ar: "جارٍ التحليل", en: "Parsing" },
+  parsing: { ar: "جارٍ قراءة الملف", en: "Reading file" },
   reviewed: { ar: "تمت المراجعة", en: "Reviewed" },
   accepted: { ar: "مقبول", en: "Accepted" },
   undecided: { ar: "لم يقرر العميل", en: "Buyer has not decided" },
@@ -111,6 +188,8 @@ export const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
   best_price: { ar: "أفضل سعر", en: "Best price" },
   price_drop: { ar: "انخفاض سعر", en: "Price drop" },
   store: { ar: "متجر", en: "Store" },
+  merchant: { ar: "متجر", en: "Store" },
+  search: { ar: "بحث محفوظ", en: "Saved search" },
   product: { ar: "منتج", en: "Product" },
   debit: { ar: "خصم", en: "Debit" },
   credit: { ar: "إضافة رصيد", en: "Credit" },
@@ -133,6 +212,8 @@ export const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
   not_required: { ar: "غير مطلوب", en: "Not required" },
   pending_payment: { ar: "بانتظار الدفع", en: "Pending payment" },
   price_changed: { ar: "السعر اتغيّر", en: "Price changed" },
+  out_of_stock: { ar: "غير متوفر بالمخزون", en: "Out of stock" },
+  other: { ar: "سبب آخر", en: "Other" },
   price_up: { ar: "السعر زاد", en: "Price increased" },
   price_down: { ar: "السعر انخفض", en: "Price decreased" },
   no_change: { ar: "بدون تغيير", en: "No change" },
@@ -154,7 +235,7 @@ export function statusTone(value: unknown) {
 }
 
 const ERROR_LABELS: Record<string, { ar: string; en: string }> = {
-  authentication_required: { ar: "انتهت جلسة الدخول. سجّل الدخول مرة أخرى.", en: "Your session ended. Sign in again." },
+  authentication_required: { ar: "انتهى تسجيل الدخول. سجّل الدخول مرة أخرى.", en: "You were signed out. Sign in again." },
   buyer_access_required: { ar: "الحساب غير متاح في بوابة المشتري.", en: "This account cannot access the buyer portal." },
   buyer_section_not_found: { ar: "صفحة المشتري المطلوبة غير موجودة.", en: "The requested buyer page does not exist." },
   buyer_action_not_found: { ar: "الإجراء المطلوب غير متاح.", en: "The requested action is unavailable." },
@@ -172,7 +253,7 @@ const ERROR_LABELS: Record<string, { ar: string; en: string }> = {
   quote_not_found_for_current_buyer: { ar: "طلب التسعير غير موجود أو لا يخص حسابك.", en: "The quote request was not found for your account." },
   offers_require_approved_quote: { ar: "راجع عناصر الطلب واعتمدها قبل جلب العروض.", en: "Review and approve the request items before generating offers." },
   rfq_requires_approved_quote: { ar: "اعتمد الطلب قبل إرساله للمتاجر.", en: "Approve the request before sending it to stores." },
-  rfq_has_no_uncovered_items: { ar: "كل المنتجات مغطاة بالفعل ولا يوجد ما يحتاج طلبًا إضافيًا.", en: "All items are already covered; no extra RFQ is needed." },
+  rfq_has_no_uncovered_items: { ar: "كل المنتجات مغطاة بالفعل ولا يوجد ما يحتاج طلبًا إضافيًا.", en: "All items are already covered; no additional quote request is needed." },
   rfq_response_not_found: { ar: "رد المتجر غير موجود أو لم يعد متاحًا.", en: "The store response was not found or is no longer available." },
   shipping_weight_not_covered: { ar: "الوزن المدخل غير مغطى في باقات شركة الشحن.", en: "The entered weight is not covered by the shipping tiers." },
   order_not_found: { ar: "الطلب غير موجود أو لا يخص حسابك.", en: "The order was not found for your account." },
@@ -181,7 +262,7 @@ const ERROR_LABELS: Record<string, { ar: string; en: string }> = {
   upload_failed: { ar: "تعذر رفع الملف. حاول مرة أخرى.", en: "The file could not be uploaded. Try again." },
   analysis_failed: { ar: "تعذر تحليل الملف. جرّب ملفًا أوضح أو اكتب الطلب يدويًا.", en: "The file could not be analyzed. Try a clearer file or enter the request manually." },
   ai_not_configured: { ar: "تحليل الملفات غير متاح مؤقتًا. استخدم الإدخال اليدوي.", en: "File analysis is temporarily unavailable. Use manual entry." },
-  invalid_session: { ar: "جلسة الدخول غير صالحة. سجّل الدخول من جديد.", en: "The session is invalid. Sign in again." },
+  invalid_session: { ar: "انتهى تسجيل الدخول. سجّل الدخول من جديد.", en: "Your sign-in expired. Sign in again." },
   profile_incomplete: { ar: "بيانات الحساب غير مكتملة.", en: "The account profile is incomplete." },
   buyer_account_not_allowed: { ar: "هذا البريد مسجل كمشتري. استخدم حساب متجر أو أنشئ حساب متجر جديد.", en: "This email belongs to a buyer account. Use or create a merchant account." },
   merchant_account_required: { ar: "الحساب غير مرتبط بمتجر.", en: "The account is not linked to a store." },
@@ -195,7 +276,7 @@ const ERROR_LABELS: Record<string, { ar: string; en: string }> = {
   branch_scope_required: { ar: "ليس لديك صلاحية لهذا الفرع.", en: "You do not have permission for this branch." },
   file_too_large: { ar: "حجم الملف أكبر من المسموح.", en: "The file is larger than allowed." },
   unsupported_file_type: { ar: "نوع الملف غير مدعوم.", en: "This file type is not supported." },
-  both_manager_id_sides_required: { ar: "ارفع وجهي بطاقة مدير الفرع.", en: "Upload both sides of the branch manager ID." },
+  both_manager_id_sides_required: { ar: "ارفع وجهي بطاقة مدير الفرع.", en: "Upload both sides of the branch manager identity card." },
   message_required: { ar: "اكتب رسالة قبل الإرسال.", en: "Write a message before sending." },
   chat_available_after_acceptance: { ar: "المحادثة تصبح متاحة بعد قبول الطلب.", en: "Chat becomes available after the order is accepted." },
   own_store_hidden_in_buyer_mode: { ar: "متجرك لا يظهر لك في وضع المشتري.", en: "Your own store is hidden in buyer mode." },
@@ -243,7 +324,7 @@ const ERROR_LABELS: Record<string, { ar: string; en: string }> = {
   payment_proof_not_owned_by_merchant: { ar: "إثبات التحويل غير مرتبط بهذا المتجر.", en: "The transfer proof is not linked to this store." },
   payment_proof_type_not_allowed: { ar: "نوع ملف إثبات التحويل غير مسموح.", en: "The transfer proof file type is not allowed." },
   payment_proof_file_too_large: { ar: "حجم إثبات التحويل أكبر من المسموح.", en: "The transfer proof file is larger than allowed." },
-  payment_provider_not_ready: { ar: "بوابة الدفع الإلكتروني لم تكتمل من الإدارة بعد.", en: "The electronic payment gateway is not ready yet." },
+  payment_provider_not_ready: { ar: "خدمة الدفع الإلكتروني غير جاهزة بعد.", en: "The electronic payment service is not ready yet." },
 };
 
 export function humanError(error: unknown, locale: "ar" | "en") {

@@ -38,7 +38,7 @@ test("merchant and support headings are explicitly balanced over two lines", () 
 
 test("merchant billing copy states that Saarly subscription is web-only", () => {
   assert.match(siteContent, /merchant web portal only/i);
-  assert.match(authForms, /web-only for the store owner/);
+  assert.match(authForms, /through the website only for the store owner/);
   assert.doesNotMatch(siteContent + authForms, /mobile checkout|inside the mobile app/i);
 });
 

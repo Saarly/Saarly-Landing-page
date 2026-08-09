@@ -44,7 +44,7 @@ export function InvitePage() {
             onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
           >
             <Icon name="globe" />
-            <span>{locale === "ar" ? "EN" : "ع"}</span>
+            <span>{locale === "ar" ? "الإنجليزية" : "Arabic"}</span>
           </button>
           <button
             className="icon-button"
@@ -68,8 +68,8 @@ export function InvitePage() {
         </h1>
         <p>
           {locale === "ar"
-            ? "افتح التطبيق مباشرة، أو سجّل متجرك من الموقع. ستُحتسب الإحالة بعد قبول المتجر من الإدارة."
-            : "Open the app directly, or register your store on the web. The referral is counted after admin approval."}
+            ? "افتح التطبيق مباشرة، أو سجّل متجرك من الموقع. ستُحتسب الإحالة بعد قبول تسجيل المتجر."
+            : "Open the app directly, or register your store on the website. The referral is counted after the store registration is approved."}
         </p>
 
         {code ? (

@@ -51,10 +51,10 @@ test("branch upload limits match the mobile branch document rules", () => {
   assert.match(uploadRoute, /BRANCH_DOCUMENT_MAX_BYTES = 5 \* 1024 \* 1024/);
   assert.match(uploadRoute, /allowed = IMAGE_TYPES;\s+maxBytes = BRANCH_DOCUMENT_MAX_BYTES;/);
   assert.match(uploadRoute, /allowed = DOCUMENT_TYPES;\s+maxBytes = BRANCH_DOCUMENT_MAX_BYTES;/);
-  assert.match(branches, /Manager ID front[^]*accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(branches, /Manager identity card front[^]*accept="image\/jpeg,image\/png,image\/webp"/);
   assert.match(branches, /Separate commercial register[^]*accept="image\/jpeg,image\/png,application\/pdf"/);
-  assert.match(branches, /JPG, PNG, WEBP - up to 5 MB/);
-  assert.match(branches, /JPG, PNG, PDF - up to 5 MB/);
+  assert.match(branches, /Image file — up to 5 megabytes/);
+  assert.match(branches, /Image or document — up to 5 megabytes/);
 });
 
 test("merchant portal displays founder and trusted badges", () => {
@@ -78,7 +78,7 @@ test("merchant account status mirrors the mobile read-only status and links owne
   assert.match(portalRoute, /my_monetization_dashboard/);
   assert.match(overview, /href="\/merchant\/account-status"/);
   assert.match(accountStatus, /Receiving requests/);
-  assert.match(accountStatus, /Payment and renewal are available in the web portal only/);
+  assert.match(accountStatus, /Payment and renewal are available on the website only/);
   assert.doesNotMatch(accountStatus, /create_manual_payment|payment proof|checkout session/i);
   assert.match(accountStatus, /href="\/merchant\/subscriptions"/);
 });
@@ -91,7 +91,7 @@ test("merchant web subscriptions use admin-managed plans and manual payment cont
   assert.match(portalRoute, /payment_transactions/);
   assert.match(portalRoute, /portal_create_manual_subscription_payment_request/);
   assert.match(uploadRoute, /subscription-payment-proof/);
-  assert.match(subscriptions, /اشتراك سعرلي على الويب فقط/);
+  assert.match(subscriptions, /اشتراك سعرلي من خلال الموقع فقط/);
   assert.match(subscriptions, /Buyer purchases from stores remain a separate orders flow/);
   assert.match(subscriptions, /Electronic payment is not connected right now/);
 });

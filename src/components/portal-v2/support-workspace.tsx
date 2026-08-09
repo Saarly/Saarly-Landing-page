@@ -23,7 +23,7 @@ function ratingOf(conversation: PortalRow) {
 function supportStatusCopy(status: string, locale: "ar" | "en") {
   if (status === "transferred") return locale === "ar" ? "مع فريق خدمة العملاء" : "With customer support";
   if (status === "closed") return locale === "ar" ? "تم إنهاء الشكوى" : "Complaint closed";
-  return locale === "ar" ? "المساعد الآلي متاح" : "AI assistant available";
+  return locale === "ar" ? "المساعد الآلي متاح" : "Automated assistant available";
 }
 
 export function SupportWorkspace({ data, locale, post, notify }: Props) {

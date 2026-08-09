@@ -72,8 +72,8 @@ export function BuyerAuthForm({ initialMode = "signin" }: { initialMode?: Mode }
     if (!supabaseConfigured || !supabase) {
       setError(
         locale === "ar"
-          ? "إعداد الاتصال غير مكتمل."
-          : "Connection is not configured.",
+          ? "الخدمة غير متاحة حاليًا. حاول مرة أخرى بعد قليل."
+          : "The service is temporarily unavailable. Try again shortly.",
       );
       return;
     }
@@ -250,7 +250,7 @@ export function BuyerAuthForm({ initialMode = "signin" }: { initialMode?: Mode }
             onClick={() => setLocale(locale === "ar" ? "en" : "ar")}
           >
             <Icon name="globe" />
-            <span>{locale === "ar" ? "EN" : "ع"}</span>
+            <span>{locale === "ar" ? "الإنجليزية" : "Arabic"}</span>
           </button>
           <button
             className="icon-button"
@@ -270,7 +270,7 @@ export function BuyerAuthForm({ initialMode = "signin" }: { initialMode?: Mode }
           <h1>
             {locale === "ar"
               ? "كل أدوات المشتري من التطبيق متاحة على الموقع"
-              : "Every buyer tool from the app, now on the web"}
+              : "Every buyer tool from the app, now on the website"}
           </h1>
           <p>
             {locale === "ar"
@@ -281,8 +281,8 @@ export function BuyerAuthForm({ initialMode = "signin" }: { initialMode?: Mode }
             <li>
               <Icon name="quote" />
               {locale === "ar"
-                ? "طلبات يدوية أو صورة أو PDF أو تسجيل صوتي"
-                : "Manual, image, PDF, or voice requests"}
+                ? "طلبات يدوية أو صورة أو مستند أو تسجيل صوتي"
+                : "Manual, image, document, or voice requests"}
             </li>
             <li>
               <Icon name="compare" />
@@ -294,7 +294,7 @@ export function BuyerAuthForm({ initialMode = "signin" }: { initialMode?: Mode }
               <Icon name="shield" />
               {locale === "ar"
                 ? "نفس الحساب والبيانات بين الموقع والتطبيق"
-                : "The same account and data across web and app"}
+                : "The same account and data across the website and app"}
             </li>
           </ul>
         </aside>
@@ -540,15 +540,15 @@ export function BuyerAuthForm({ initialMode = "signin" }: { initialMode?: Mode }
                   <strong>{locale === "ar" ? "متجر" : "Merchant"}</strong>
                   <small>
                     {locale === "ar"
-                      ? "كمّل تسجيل المتجر، ارفع المستندات، ثم انتظر مراجعة الإدارة."
-                      : "Complete store registration, upload documents, then wait for admin review."}
+                      ? "كمّل تسجيل المتجر، ارفع المستندات، ثم انتظر مراجعة التسجيل."
+                      : "Complete store registration, upload documents, then wait for the registration review."}
                   </small>
                 </button>
               </div>
               <p className="form-notice">
                 {locale === "ar"
-                  ? "إذا واجهت مشكلة في التسجيل، تواصل مع الدعم عبر: support@saarly.app"
-                  : "If you face registration issues, contact support at: support@saarly.app"}
+                  ? "إذا واجهت مشكلة في التسجيل، تواصل مع الدعم من صفحة الدعم."
+                  : "If you face registration issues, contact support from the support page."}
               </p>
               {error ? <p className="form-error">{error}</p> : null}
               <button

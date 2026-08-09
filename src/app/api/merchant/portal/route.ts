@@ -283,7 +283,7 @@ async function supportConversationBundle(context: MerchantContext, requestedId?:
     if (!ownership.data?.id) throw new PortalError("support_conversation_not_found", 404);
   } else {
     const start = await context.userDb.rpc("start_or_get_support_conversation", {
-      p_title: context.profile.preferred_language === "en" ? "Merchant portal support" : "دعم بوابة المتجر",
+      p_title: context.profile.preferred_language === "en" ? "Store support" : "دعم المتجر",
       p_locale: context.profile.preferred_language === "en" ? "en" : "ar",
     });
     if (start.error) throw new PortalError(start.error.message, 400);
@@ -826,7 +826,7 @@ export async function POST(request: NextRequest) {
         category_id: categoryId,
         free_name: value(body.name).slice(0, 240),
         price: Math.max(0, finiteNumber(body.price)),
-        unit: value(body.unit).slice(0, 80) || "قطعة",
+        unit: value(body.unit).slice(0, 80) || (context.profile.preferred_language === "en" ? "piece" : "قطعة"),
         quantity: Math.max(0, finiteNumber(body.quantity)),
         brand: value(body.brand).slice(0, 160) || null,
         size: value(body.size).slice(0, 120) || null,
@@ -1400,7 +1400,7 @@ export async function POST(request: NextRequest) {
           return {
             name: value(item.name || item.requested_name).slice(0, 240),
             quantity: Math.max(0.0001, finiteNumber(item.quantity, 1)),
-            unit: value(item.unit).slice(0, 80) || "قطعة",
+            unit: value(item.unit).slice(0, 80) || (context.profile.preferred_language === "en" ? "piece" : "قطعة"),
             product_id: uuid(item.productId || item.product_id) || null,
             category_id: uuid(item.categoryId || item.category_id) || null,
             specifications: item.specifications && typeof item.specifications === "object" ? item.specifications : {},
