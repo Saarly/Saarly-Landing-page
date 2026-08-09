@@ -83,6 +83,9 @@ export const STATUS_LABELS: Record<string, { ar: string; en: string }> = {
   completed: { ar: "مكتمل", en: "Completed" },
   cancelled_by_merchant: { ar: "ألغاه المتجر", en: "Cancelled by store" },
   open: { ar: "مفتوح", en: "Open" },
+  connected: { ar: "متصل", en: "Connected" },
+  configured: { ar: "معدّ", en: "Configured" },
+  not_configured: { ar: "غير معدّ", en: "Not configured" },
   in_support: { ar: "مع فريق الدعم", en: "With support" },
   escalated: { ar: "تم التصعيد", en: "Escalated" },
   resolved: { ar: "تم الحل", en: "Resolved" },
@@ -216,6 +219,22 @@ const ERROR_LABELS: Record<string, { ar: string; en: string }> = {
   category_has_products: { ar: "لا يمكن إزالة قسم مرتبط بمنتجات فعالة. انقل المنتجات أو أوقفها أولًا.", en: "A category with active products cannot be removed. Move or deactivate those products first." },
   at_least_one_category_required: { ar: "اختر قسمًا واحدًا على الأقل.", en: "Select at least one category." },
   invalid_merchant_category: { ar: "أحد الأقسام المحددة غير صالح أو غير متاح.", en: "One selected category is invalid or unavailable." },
+  monetization_not_enabled: { ar: "نظام الاشتراكات غير مفعل حاليًا من الإدارة.", en: "The subscription system is not currently enabled by administration." },
+  monthly_subscriptions_disabled: { ar: "اشتراكات المتاجر الشهرية غير مفعلة حاليًا.", en: "Monthly merchant subscriptions are not currently enabled." },
+  manual_payment_disabled: { ar: "التحويل اليدوي غير متاح حاليًا.", en: "Manual transfer is not currently available." },
+  billing_model_choice_disabled: { ar: "تغيير طريقة المحاسبة غير متاح حاليًا.", en: "Changing billing model is not currently available." },
+  billing_preference_required: { ar: "اختر طريقة محاسبة صحيحة.", en: "Choose a valid billing method." },
+  manual_payment_method_required: { ar: "اختر طريقة تحويل صحيحة.", en: "Choose a valid transfer method." },
+  manual_payment_method_not_available: { ar: "طريقة التحويل المختارة غير متاحة حاليًا.", en: "The selected transfer method is not available right now." },
+  subscription_plan_required: { ar: "اختر باقة اشتراك صحيحة.", en: "Choose a valid subscription plan." },
+  subscription_plan_not_available: { ar: "الباقة المختارة غير متاحة حاليًا.", en: "The selected plan is not available right now." },
+  contact_email_required: { ar: "اكتب بريدًا إلكترونيًا صحيحًا للتواصل.", en: "Enter a valid contact email." },
+  payment_proof_required: { ar: "ارفع إثبات التحويل أولًا.", en: "Upload the transfer proof first." },
+  payment_proof_not_found: { ar: "لم نجد ملف إثبات التحويل. ارفعه مرة أخرى.", en: "The transfer proof file was not found. Upload it again." },
+  payment_proof_not_owned_by_merchant: { ar: "إثبات التحويل غير مرتبط بهذا المتجر.", en: "The transfer proof is not linked to this store." },
+  payment_proof_type_not_allowed: { ar: "نوع ملف إثبات التحويل غير مسموح.", en: "The transfer proof file type is not allowed." },
+  payment_proof_file_too_large: { ar: "حجم إثبات التحويل أكبر من المسموح.", en: "The transfer proof file is larger than allowed." },
+  payment_provider_not_ready: { ar: "بوابة الدفع الإلكتروني لم تكتمل من الإدارة بعد.", en: "The electronic payment gateway is not ready yet." },
 };
 
 export function humanError(error: unknown, locale: "ar" | "en") {
@@ -250,7 +269,7 @@ export function notificationTarget(deepLink: unknown, payloadValue: unknown = {}
   if (/order|fulfillment/.test(raw)) return `/merchant/orders${id ? `?focus=${encodeURIComponent(id)}` : ""}`;
   if (/product|catalog|price/.test(raw)) return `/merchant/products${id ? `?focus=${encodeURIComponent(id)}` : ""}`;
   if (/branch/.test(raw)) return `/merchant/branches${id ? `?focus=${encodeURIComponent(id)}` : ""}`;
-  if (/billing|subscription|payment/.test(raw)) return "/merchant/billing";
+  if (/billing|subscription|payment|renew/.test(raw)) return "/merchant/subscriptions";
   if (/referral|invite/.test(raw)) return "/merchant/referrals";
   if (/support|chat/.test(raw)) return `/merchant/support${id ? `?focus=${encodeURIComponent(id)}` : ""}`;
   if (/delivery|shipping/.test(raw)) return "/merchant/delivery";

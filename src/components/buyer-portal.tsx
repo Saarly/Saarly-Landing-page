@@ -62,7 +62,19 @@ export function BuyerPortal({ section = "home" }: { section?: string }) {
     } finally { setLoading(false); }
   }, [active]);
 
-  useEffect(() => { if (!supabaseConfigured) { setLoading(false); setError("supabase_not_configured"); return; } void load(); }, [load]);
+  useEffect(() => {
+    if (!supabaseConfigured) {
+      const timer = window.setTimeout(() => {
+        setLoading(false);
+        setError("supabase_not_configured");
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
   useEffect(() => {
     if (!payload || typeof window === "undefined") return;
     const focus = new URLSearchParams(window.location.search).get("focus");

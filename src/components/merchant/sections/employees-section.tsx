@@ -17,7 +17,6 @@ const permissionOptions = [
   { key: "hours", ar: "مواعيد العمل", en: "Working hours" },
   { key: "delivery", ar: "التوصيل", en: "Delivery" },
   { key: "reports", ar: "التقارير", en: "Reports" },
-  { key: "billing", ar: "الحساب والاشتراك", en: "Billing" },
   { key: "notifications", ar: "الإشعارات", en: "Notifications" },
   { key: "referrals", ar: "الدعوات", en: "Referrals" },
   { key: "support", ar: "الدعم", en: "Support" },

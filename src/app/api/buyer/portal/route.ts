@@ -10,7 +10,6 @@ function uuid(input: unknown) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : "";
 }
 function numberValue(input: unknown, fallback = 0) { const result = Number(input); return Number.isFinite(result) ? result : fallback; }
-function booleanValue(input: unknown, fallback = false) { return typeof input === "boolean" ? input : input === "true" ? true : input === "false" ? false : fallback; }
 function objectValue(input: unknown): Row { return input && typeof input === "object" && !Array.isArray(input) ? input as Row : {}; }
 function arrayValue(input: unknown): Row[] { return Array.isArray(input) ? input.filter((item) => item && typeof item === "object") as Row[] : []; }
 
@@ -220,7 +219,7 @@ async function loadHome(context: BuyerContext) {
   const location = objectValue(locationResult.data);
   const [quotes, offers, orders, favorites, referral, ads, notifications] = await Promise.all([
     loadQuotes(context, 8), loadOffers(context, 12), loadOrders(context, 8), context.userDb.rpc("my_buyer_favorites"),
-    context.userDb.rpc("my_referral_dashboard"), loadAds(context, "buyer_home_top", location),
+    context.userDb.rpc("my_referral_dashboard_for", { p_audience: "buyer" }), loadAds(context, "buyer_home_top", location),
     buyerNotifications(context, 6),
   ]);
   const [quoteCount, offerCount, orderCount, favoriteCount] = await Promise.all([
@@ -278,7 +277,7 @@ async function loadSection(context: BuyerContext, section: string) {
   if (section === "notifications") return { ...common, data: await loadNotifications(context) };
   if (section === "referrals") {
     const location = objectValue((await context.userDb.rpc("my_buyer_location")).data);
-    return { ...common, data: { dashboard: (await context.userDb.rpc("my_referral_dashboard")).data ?? {}, ads: await loadAds(context, "buyer_referrals_top", location) } };
+    return { ...common, data: { dashboard: (await context.userDb.rpc("my_referral_dashboard_for", { p_audience: "buyer" })).data ?? {}, ads: await loadAds(context, "buyer_referrals_top", location) } };
   }
   if (section === "support") return { ...common, data: await loadSupport(context) };
   if (section === "settings") return { ...common, data: { location: (await context.userDb.rpc("my_buyer_location")).data ?? {}, locationOptions: (await context.userDb.rpc("app_location_options")).data ?? [] } };
@@ -460,9 +459,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: { count: result.data ?? 0 } });
     }
     if (action === "accept_offer") {
-      const result = await context.userDb.rpc("accept_offer", { p_offer_id: uuid(body.offerId) });
+      const offerId = uuid(body.offerId);
+      if (!offerId) throw new PortalError("offer_not_found", 404);
+      const rawQuantities = Array.isArray(body.itemQuantities) ? body.itemQuantities : Array.isArray(body.item_quantities) ? body.item_quantities : [];
+      const quantities = rawQuantities
+        .map((raw) => objectValue(raw))
+        .map((item) => ({
+          offer_item_id: uuid(item.offer_item_id || item.offerItemId || item.id),
+          quantity: numberValue(item.quantity, 1),
+        }))
+        .filter((item) => item.offer_item_id && item.quantity > 0);
+      const result = await context.userDb.rpc("accept_offer_with_quantities", { p_offer_id: offerId, p_item_quantities: quantities });
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: { orderId: result.data } });
+    }
+    if (action === "preview_offer_acceptance") {
+      const result = await context.userDb.rpc("preview_offer_acceptance", { p_offer_id: uuid(body.offerId) });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: result.data ?? {} });
+    }
+    if (action === "preview_catalog_cart") {
+      const merchantId = uuid(body.merchantId);
+      await visibleMerchant(context, merchantId);
+      const items = Array.isArray(body.items) ? body.items.map((raw) => {
+        const item = objectValue(raw);
+        return { product_id: uuid(item.productId || item.product_id), quantity: Math.max(0, numberValue(item.quantity)) };
+      }).filter((item) => item.product_id && item.quantity > 0).slice(0, 100) : [];
+      if (!items.length) throw new PortalError("catalog_cart_empty", 400);
+      const result = await context.userDb.rpc("preview_catalog_cart_order", { p_merchant_id: merchantId, p_items: items });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: result.data ?? {} });
+    }
+    if (action === "create_catalog_cart_order") {
+      const merchantId = uuid(body.merchantId);
+      await visibleMerchant(context, merchantId);
+      const items = Array.isArray(body.items) ? body.items.map((raw) => {
+        const item = objectValue(raw);
+        return { product_id: uuid(item.productId || item.product_id), quantity: Math.max(0, numberValue(item.quantity)) };
+      }).filter((item) => item.product_id && item.quantity > 0).slice(0, 100) : [];
+      if (!items.length) throw new PortalError("catalog_cart_empty", 400);
+      const result = await context.userDb.rpc("create_catalog_cart_order", { p_merchant_id: merchantId, p_items: items });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: result.data ?? {} });
     }
     if (action === "create_rfq") {
       const result = await context.userDb.rpc("create_rfq_for_uncovered_items", { p_quote_request_id: uuid(body.quoteRequestId), p_quote_item_ids: Array.isArray(body.quoteItemIds) ? body.quoteItemIds.map(uuid).filter(Boolean) : null });
@@ -472,7 +510,10 @@ export async function POST(request: NextRequest) {
     if (action === "rfq_shipping_options") {
       const rfqResponseId = uuid(body.rfqResponseId);
       if (!rfqResponseId) throw new PortalError("rfq_response_not_found", 404);
-      const result = await context.userDb.rpc("get_rfq_response_shipping_options", { p_rfq_response_id: rfqResponseId });
+      const result = await context.userDb.rpc("get_rfq_response_delivery_quote", {
+        p_rfq_response_id: rfqResponseId,
+        p_total_weight_kg: body.totalWeightKg === null || body.totalWeightKg === undefined ? null : numberValue(body.totalWeightKg),
+      });
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: result.data ?? { companies: [] } });
     }

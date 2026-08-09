@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Locale } from "@/lib/site-content";
 import { supabase } from "@/lib/supabase";
 
@@ -37,13 +37,16 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>("system");
 
   useEffect(() => {
-    const stored = readStoredPreferences();
-    setLocaleState(stored.locale);
-    setThemeState(stored.theme);
-    apply(stored.locale, stored.theme);
+    const timer = window.setTimeout(() => {
+      const stored = readStoredPreferences();
+      setLocaleState(stored.locale);
+      setThemeState(stored.theme);
+      apply(stored.locale, stored.theme);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  function setLocale(next: Locale) {
+  const setLocale = useCallback((next: Locale) => {
     localStorage.setItem("saarly-locale", next);
     setLocaleState(next);
     apply(next, theme);
@@ -56,15 +59,15 @@ export function SitePreferencesProvider({ children }: { children: ReactNode }) {
         });
       }).catch(() => undefined);
     }
-  }
+  }, [theme]);
 
-  function setTheme(next: ThemeMode) {
+  const setTheme = useCallback((next: ThemeMode) => {
     localStorage.setItem("saarly-theme", next);
     setThemeState(next);
     apply(locale, next);
-  }
+  }, [locale]);
 
-  const value = useMemo(() => ({ locale, theme, setLocale, setTheme }), [locale, theme]);
+  const value = useMemo(() => ({ locale, theme, setLocale, setTheme }), [locale, theme, setLocale, setTheme]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

@@ -25,12 +25,8 @@ function stringList(input: unknown) {
   return Array.isArray(input) ? input.map((item) => value(item)).filter(Boolean) : [];
 }
 
-function safeLimit(input: unknown, fallback = 50, max = 200) {
-  return Math.min(max, Math.max(1, Math.trunc(finiteNumber(input, fallback))));
-}
-
-function safeOffset(input: unknown) {
-  return Math.max(0, Math.trunc(finiteNumber(input, 0)));
+function objectValue(input: unknown): Row {
+  return input && typeof input === "object" && !Array.isArray(input) ? input as Row : {};
 }
 
 function scopedBranchIds(context: MerchantContext) {
@@ -114,15 +110,15 @@ function errorResponse(error: unknown) {
 }
 
 async function accountStatus(context: MerchantContext) {
-  const { data, error } = await context.userDb.rpc("merchant_account_status");
+  const { data, error } = await context.userDb.rpc("my_monetization_dashboard");
   if (error) {
     return {
       merchant_id: context.merchantId,
       access_status: context.merchant.approval_status === "approved" ? "pre_launch_access" : "suspended",
+      can_receive_new_work: context.merchant.approval_status === "approved",
       can_receive_orders: context.merchant.approval_status === "approved",
       stop_reason: context.merchant.rejection_reason ?? null,
       pricing_mode: context.merchant.pricing_mode,
-      billing_preference: context.merchant.billing_preference,
     };
   }
   return data ?? {};
@@ -187,82 +183,6 @@ async function overviewData(context: MerchantContext) {
   };
 }
 
-async function loadBilling(context: MerchantContext) {
-  const status = await accountStatus(context);
-  const { data: flags } = await context.service
-    .from("feature_flags")
-    .select("key, is_enabled, configuration")
-    .in("key", [
-      "monetization_enabled",
-      "monetization_enforcement_enabled",
-      "manual_payment_enabled",
-      "automatic_payment_enabled",
-      "commission_mode_enabled",
-      "grace_period_enabled",
-    ]);
-  const flagMap = Object.fromEntries(((flags ?? []) as Row[]).map((item: Row) => [String(item.key), item]));
-  const monetization = Boolean(flagMap.monetization_enabled?.is_enabled);
-  const manualEnabled = monetization && Boolean(flagMap.manual_payment_enabled?.is_enabled);
-  const automaticEnabled = monetization && Boolean(flagMap.automatic_payment_enabled?.is_enabled);
-
-  const [subscriptions, paymentRequests, ledger, commissions, settlements] = await Promise.all([
-    context.service.from("merchant_subscriptions").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }).limit(50),
-    context.service.from("manual_payment_requests").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }).limit(50),
-    context.service.from("merchant_billing_ledger").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }).limit(100),
-    context.service.from("merchant_commissions").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }).limit(100),
-    context.service.from("merchant_commission_settlements").select("*").eq("merchant_id", context.merchantId).order("created_at", { ascending: false }).limit(50),
-  ]);
-
-  let plans: Row[] = [];
-  let manualMethods: Row[] = [];
-  let gateways: Row[] = [];
-  if (monetization) {
-    const planResult = await context.service
-      .from("subscription_plans")
-      .select("id, name_ar, name_en, description_ar, description_en, monthly_price, old_price, currency, duration_days, plan_type, features_ar, features_en, sort_order")
-      .eq("is_active", true)
-      .order("sort_order");
-    plans = (planResult.data ?? []) as Row[];
-  }
-  if (manualEnabled) {
-    const methodResult = await context.service
-      .from("manual_payment_methods")
-      .select("id, code, name_ar, name_en, account_label, account_number, account_holder_name, instructions_ar, instructions_en, allowed_mime_types, max_file_size_bytes, sort_order")
-      .eq("is_active", true)
-      .order("sort_order");
-    manualMethods = (methodResult.data ?? []) as Row[];
-  }
-  if (automaticEnabled) {
-    const gatewayResult = await context.service
-      .from("payment_settings")
-      .select("id, provider, display_name_ar, display_name_en, supported_currencies, supported_methods, gateway_environment")
-      .eq("is_enabled", true)
-      .eq("is_connected", true);
-    gateways = (gatewayResult.data ?? []) as Row[];
-  }
-
-  return {
-    status,
-    flags: {
-      monetizationEnabled: monetization,
-      manualPaymentEnabled: manualEnabled,
-      automaticPaymentEnabled: automaticEnabled,
-      commissionEnabled: monetization && Boolean(flagMap.commission_mode_enabled?.is_enabled),
-      enforcementEnabled: Boolean(flagMap.monetization_enforcement_enabled?.is_enabled),
-    },
-    plans,
-    manualMethods,
-    gateways,
-    subscriptions: subscriptions.data ?? [],
-    paymentRequests: paymentRequests.data ?? [],
-    ledger: ledger.data ?? [],
-    commissions: commissions.data ?? [],
-    settlements: settlements.data ?? [],
-    currencyCode: context.currencyCode,
-  };
-}
-
-
 async function loadImports(context: MerchantContext) {
   const { data: batches, error } = await context.service
     .from("product_import_batches")
@@ -315,7 +235,7 @@ async function loadReports(context: MerchantContext) {
   const scope = allowedBranchIds(context);
   const branchRows = Array.isArray(branches.data) ? branches.data as Row[] : [];
   const visibleBranches = scope ? branchRows.filter((item) => scope.has(String(item.branch_id ?? ""))) : branchRows;
-  let visibleReviews = reviewRows;
+  const visibleReviews = reviewRows;
   let summaryRow = (Array.isArray(summary.data) ? summary.data[0] ?? {} : summary.data ?? {}) as Row;
   let growthRow = (growth.data ?? {}) as Row;
   if (scope) {
@@ -334,7 +254,7 @@ async function loadReports(context: MerchantContext) {
 
 async function loadReferrals(context: MerchantContext) {
   const [dashboard, ads] = await Promise.all([
-    context.userDb.rpc("my_referral_dashboard"),
+    context.userDb.rpc("my_referral_dashboard_for", { p_audience: "merchant" }),
     context.service.from("ads_banners").select("id,title_ar,title_en,image_url,target_url,placement,is_active,is_ongoing,starts_at,ends_at").eq("placement", "merchant_referrals_top").eq("is_active", true).order("created_at", { ascending: false }).limit(10),
   ]);
   if (dashboard.error) throw new PortalError(dashboard.error.message, 400);
@@ -359,6 +279,138 @@ async function loadSupport(context: MerchantContext) {
 
 async function loadReviews(context: MerchantContext) {
   return { reviews: await scopedReviews(context, 300) };
+}
+
+function flagEnabled(flags: Row[], key: string) {
+  return Boolean(flags.find((flag) => value(flag.key) === key)?.is_enabled);
+}
+
+function paymentProviderReady(setting: Row) {
+  const metadata = objectValue(setting.metadata);
+  return Boolean(setting.is_enabled)
+    && Boolean(setting.is_connected)
+    && value(setting.config_status) === "connected"
+    && value(setting.secret_reference)
+    && value(metadata.last_test_result) === "connection_succeeded";
+}
+
+async function loadSubscriptions(context: MerchantContext) {
+  const [status, flagsResult, plansResult, methodsResult, requestsResult, transactionsResult, subscriptionsResult, settingsResult] = await Promise.all([
+    accountStatus(context),
+    context.service
+      .from("feature_flags")
+      .select("key,is_enabled,configuration,updated_at")
+      .in("key", [
+        "monetization_enabled",
+        "manual_payments_enabled",
+        "merchant_monthly_subscription_enabled",
+        "merchant_can_choose_billing_model",
+        "merchant_commission_enabled",
+        "electronic_payments_enabled",
+      ]),
+    context.service
+      .from("subscription_plans")
+      .select("id,plan_code,name_ar,name_en,description_ar,description_en,monthly_price,old_price,currency,duration_days,billing_period_months,grace_months,features,features_ar,features_en,is_active,sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    context.service
+      .from("manual_payment_methods")
+      .select("id,code,name_ar,name_en,provider,account_label,account_number,account_holder_name,instructions_ar,instructions_en,allowed_mime_types,max_file_size_bytes,is_active,sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }),
+    context.service
+      .from("manual_payment_requests")
+      .select("id,merchant_id,plan_id,manual_payment_method_id,contact_email,transfer_reference,proof_storage_bucket,proof_storage_path,proof_mime_type,proof_size_bytes,status,rejection_reason,reviewed_at,original_amount,discount_percent,discount_amount,final_amount,currency,duration_days,plan_snapshot,price_snapshot,created_at,updated_at")
+      .eq("merchant_id", context.merchantId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    context.service
+      .from("payment_transactions")
+      .select("id,merchant_id,subscription_id,plan_id,provider,amount,currency,status,external_reference,purpose,payment_method,direct_to_merchant,paid_at,failed_at,cancelled_at,refunded_at,created_at,updated_at")
+      .eq("merchant_id", context.merchantId)
+      .in("purpose", ["subscription", "merchant_balance", "commission_settlement"])
+      .order("created_at", { ascending: false })
+      .limit(100),
+    context.service
+      .from("merchant_subscriptions")
+      .select("id,merchant_id,plan_id,status,starts_at,ends_at,next_billing_at,billing_model,grace_months,balance_due,last_charged_at,suspended_at,blocked_from_new_work_at,suspension_reason,auto_renew,source_payment_request_id,price_snapshot,created_at,updated_at")
+      .eq("merchant_id", context.merchantId)
+      .order("updated_at", { ascending: false })
+      .limit(100),
+    context.service
+      .from("payment_settings")
+      .select("provider,is_enabled,is_connected,config_status,gateway_environment,display_name_ar,display_name_en,supported_currencies,supported_methods,metadata,secret_reference")
+      .order("provider", { ascending: true }),
+  ]);
+  const error = flagsResult.error || plansResult.error || methodsResult.error || requestsResult.error || transactionsResult.error || subscriptionsResult.error || settingsResult.error;
+  if (error) throw new PortalError(error.message || "subscriptions_load_failed", 400);
+  const flags = (flagsResult.data ?? []) as Row[];
+  const plans = (plansResult.data ?? []) as Row[];
+  const planMap = new Map(plans.map((plan) => [value(plan.id), plan]));
+  const manualRequests = await Promise.all(((requestsResult.data ?? []) as Row[]).map(async (request) => {
+    const plan = planMap.get(value(request.plan_id)) ?? objectValue(request.plan_snapshot);
+    return {
+      ...request,
+      plan_name_ar: plan.name_ar ?? null,
+      plan_name_en: plan.name_en ?? null,
+      proof_signed_url: await signedStorageUrl(context, "merchant-payment-proofs", request.proof_storage_path, 10 * 60),
+    };
+  }));
+  const transactions = ((transactionsResult.data ?? []) as Row[]).map((transaction) => {
+    const plan = planMap.get(value(transaction.plan_id));
+    return {
+      ...transaction,
+      plan_name_ar: plan?.name_ar ?? null,
+      plan_name_en: plan?.name_en ?? null,
+    };
+  });
+  const subscriptions = ((subscriptionsResult.data ?? []) as Row[]).map((subscription) => {
+    const plan = planMap.get(value(subscription.plan_id));
+    return {
+      ...subscription,
+      plan_name_ar: plan?.name_ar ?? null,
+      plan_name_en: plan?.name_en ?? null,
+    };
+  });
+  const paymentSettings = ((settingsResult.data ?? []) as Row[]).map((setting) => ({
+    provider: setting.provider,
+    is_enabled: setting.is_enabled,
+    is_connected: setting.is_connected,
+    config_status: setting.config_status,
+    gateway_environment: setting.gateway_environment,
+    display_name_ar: setting.display_name_ar,
+    display_name_en: setting.display_name_en,
+    supported_currencies: setting.supported_currencies,
+    supported_methods: setting.supported_methods,
+    ready: paymentProviderReady(setting),
+  }));
+  const monetizationEnabled = flagEnabled(flags, "monetization_enabled");
+  const monthlySubscriptionEnabled = monetizationEnabled && flagEnabled(flags, "merchant_monthly_subscription_enabled");
+  const electronicPaymentFeatureEnabled = monetizationEnabled && flagEnabled(flags, "electronic_payments_enabled");
+  const electronicGatewayReady = electronicPaymentFeatureEnabled && paymentSettings.some((setting) => setting.ready === true);
+  return {
+    status,
+    flags,
+    plans,
+    manualMethods: methodsResult.data ?? [],
+    manualRequests,
+    transactions,
+    subscriptions,
+    paymentSettings,
+    invoices: [],
+    capabilities: {
+      monetizationEnabled,
+      monthlySubscriptionEnabled,
+      manualPaymentEnabled: monetizationEnabled && flagEnabled(flags, "manual_payments_enabled"),
+      canChooseBillingModel: monetizationEnabled && flagEnabled(flags, "merchant_can_choose_billing_model"),
+      commissionEnabled: monetizationEnabled && flagEnabled(flags, "merchant_commission_enabled"),
+      electronicPaymentFeatureEnabled,
+      electronicGatewayReady,
+      electronicCheckoutAvailable: false,
+      electronicPaymentEnabled: electronicGatewayReady,
+      invoicesAvailable: false,
+    },
+  };
 }
 
 async function visibleBuyerMerchant(context: MerchantContext, merchantId: string) {
@@ -422,6 +474,8 @@ async function loadSection(context: MerchantContext, section: string) {
   };
 
   if (section === "overview") return { ...common, section, data: await overviewData(context) };
+  if (section === "account-status") return { ...common, section, data: { status: await accountStatus(context) } };
+  if (section === "subscriptions") return { ...common, section, data: await loadSubscriptions(context) };
   if (section === "store" || section === "settings") {
     const [merchantCategories, categories] = await Promise.all([
       context.service.from("merchant_categories").select("merchant_id, category_id, is_primary").eq("merchant_id", context.merchantId),
@@ -507,9 +561,6 @@ async function loadSection(context: MerchantContext, section: string) {
     if (error) throw new PortalError(error.message, 400);
     return { ...common, section, data: { notifications: data ?? [] } };
   }
-  if (section === "billing" || section === "payments") {
-    return { ...common, section, data: await loadBilling(context) };
-  }
   return { ...common, section: "overview", data: await overviewData(context) };
 }
 
@@ -519,6 +570,7 @@ export async function GET(request: NextRequest) {
     const section = value(request.nextUrl.searchParams.get("section")) || "overview";
     if (section === "employees") ownerOnly(context);
     if (section === "store") ownerOnly(context);
+    if (section === "subscriptions") ownerOnly(context);
     if (!context.isOwner && !canManage(context, section)) throw new PortalError("section_permission_required", 403);
     return NextResponse.json(await loadSection(context, section));
   } catch (error) {
@@ -546,6 +598,19 @@ export async function POST(request: NextRequest) {
         },
       });
       if (result.error) throw new PortalError(result.error.message, 400);
+      const savedBranch = objectValue(result.data);
+      const savedBranchId = uuid(body.id) || uuid(savedBranch.id) || uuid(result.data);
+      if (savedBranchId) {
+        const freeDeliveryEnabled = booleanValue(body.freeDeliveryEnabled);
+        const freeDeliveryMinimum = freeDeliveryEnabled ? finiteNumber(body.freeDeliveryMinimum) : null;
+        if (freeDeliveryEnabled && (!freeDeliveryMinimum || freeDeliveryMinimum <= 0)) throw new PortalError("free_delivery_minimum_required", 400);
+        const freeDelivery = await context.userDb.rpc("set_my_branch_free_delivery", {
+          p_branch_id: savedBranchId,
+          p_enabled: freeDeliveryEnabled,
+          p_minimum: freeDeliveryMinimum,
+        });
+        if (freeDelivery.error) throw new PortalError(freeDelivery.error.message, 400);
+      }
       return NextResponse.json({ data: result.data });
     }
 
@@ -651,6 +716,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: result.data });
     }
 
+    if (action === "delete_branch") {
+      ownerOnly(context);
+      const branchId = uuid(body.id);
+      if (!branchId) throw new PortalError("branch_not_found", 404);
+      const before = await context.service
+        .from("branches")
+        .select("*")
+        .eq("id", branchId)
+        .eq("merchant_id", context.merchantId)
+        .maybeSingle();
+      if (before.error) throw new PortalError(before.error.message, 400);
+      if (!before.data) throw new PortalError("branch_not_found", 404);
+      const result = await context.service
+        .from("branches")
+        .delete()
+        .eq("id", branchId)
+        .eq("merchant_id", context.merchantId);
+      if (result.error) throw new PortalError(result.error.message, 400);
+      await audit(context, "portal_delete_branch", "branches", branchId, before.data as Row, null);
+      return NextResponse.json({ data: true });
+    }
+
     if (action === "save_staff") {
       ownerOnly(context);
       const result = await context.userDb.rpc("upsert_my_merchant_staff_member", {
@@ -709,7 +796,7 @@ export async function POST(request: NextRequest) {
     if (action === "submit_rfq") {
       if (!canManage(context, "requests")) throw new PortalError("request_permission_required", 403);
       const status = await accountStatus(context);
-      if ((status as Row).can_receive_orders !== true) {
+      if ((status as Row).can_receive_new_work !== true && (status as Row).can_receive_orders !== true) {
         throw new PortalError(value((status as Row).stop_reason) || "merchant_not_receiving_requests", 409);
       }
       const result = await context.userDb.rpc("submit_rfq_response", {
@@ -988,6 +1075,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: result.data });
     }
 
+    if (action === "set_billing_preference") {
+      ownerOnly(context);
+      const preference = value(body.preference);
+      if (!["monthly_subscription", "commission"].includes(preference)) throw new PortalError("billing_preference_required", 400);
+      const result = await context.userDb.rpc("portal_set_my_billing_preference", { p_preference: preference });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: result.data });
+    }
+
+    if (action === "create_manual_subscription_payment_request") {
+      ownerOnly(context);
+      const planId = uuid(body.planId);
+      const methodId = uuid(body.manualPaymentMethodId);
+      const proofPath = normalizeStoragePath("merchant-payment-proofs", body.proofStoragePath);
+      if (!planId) throw new PortalError("subscription_plan_required", 400);
+      if (!methodId) throw new PortalError("manual_payment_method_required", 400);
+      if (!proofPath) throw new PortalError("payment_proof_required", 400);
+      const result = await context.userDb.rpc("portal_create_manual_subscription_payment_request", {
+        p_plan_id: planId,
+        p_manual_payment_method_id: methodId,
+        p_contact_email: value(body.contactEmail) || value(context.user.email) || value(context.profile.primary_email),
+        p_proof_storage_path: proofPath,
+        p_transfer_reference: value(body.transferReference) || null,
+        p_idempotency_key: value(body.idempotencyKey) || `merchant-web:${context.merchantId}:${planId}:${methodId}:${proofPath}`,
+      });
+      if (result.error) throw new PortalError(result.error.message, 400);
+      return NextResponse.json({ data: result.data });
+    }
+
     if (action === "mark_notification") {
       const notificationId = uuid(body.id);
       const result = await context.service
@@ -1009,33 +1125,6 @@ export async function POST(request: NextRequest) {
         .eq("is_read", false);
       if (result.error) throw new PortalError(result.error.message, 400);
       return NextResponse.json({ data: true });
-    }
-
-    if (action === "set_billing_preference") {
-      ownerOnly(context);
-      const preference = value(body.preference);
-      if (!["monthly_subscription", "commission"].includes(preference)) throw new PortalError("billing_preference_invalid");
-      const result = await context.service.rpc("portal_set_billing_preference_as", {
-        p_user_id: context.user.id,
-        p_preference: preference,
-      });
-      if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data });
-    }
-
-    if (action === "create_manual_payment") {
-      ownerOnly(context);
-      const result = await context.service.rpc("portal_create_manual_subscription_payment_request_as", {
-        p_user_id: context.user.id,
-        p_plan_id: uuid(body.planId),
-        p_manual_payment_method_id: uuid(body.methodId),
-        p_contact_email: value(body.contactEmail),
-        p_proof_storage_path: value(body.proofPath),
-        p_transfer_reference: value(body.transferReference) || null,
-        p_idempotency_key: value(body.idempotencyKey),
-      });
-      if (result.error) throw new PortalError(result.error.message, 400);
-      return NextResponse.json({ data: result.data });
     }
 
     if (action === "save_preferences") {

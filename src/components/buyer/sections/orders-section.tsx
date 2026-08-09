@@ -93,8 +93,8 @@ export function BuyerOrdersSection({ payload, locale, refresh, notify }: BuyerSe
   return <div className="portal-section-stack">
     <Notice tone="info" title={locale === "ar" ? "معلومات الطلب للقراءة فقط" : "Order information is read-only"}>
       {locale === "ar"
-        ? "الموقع يعرض حالة الطلب والمستحقات والتواصل فقط. لا توجد وسيلة دفع أو دعوة للشراء داخل بوابة المشتري."
-        : "The portal only shows order status, amounts, and contact details. There is no buyer payment or purchase prompt inside Saarly."}
+        ? "الموقع يعرض حالة الطلب والمستحقات والتواصل وتأكيد المتجر. الدفع الإلكتروني داخل سعرلي غير مفعّل حاليًا."
+        : "The portal shows order status, amounts, contact details, and store confirmation. Electronic buyer payment inside Saarly is disabled for now."}
     </Notice>
 
     <PortalPanel

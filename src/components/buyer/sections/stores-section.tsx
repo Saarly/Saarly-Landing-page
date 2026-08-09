@@ -9,6 +9,7 @@ import type { BuyerSectionProps } from "@/components/buyer/section-props";
 
 type BuyerTab = "browse" | "favorites" | "alerts" | "location";
 type RequestItem = { name: string; quantity: number; unit: string; productId?: string; categoryId?: string; confidence?: number | null; needsReview?: boolean };
+type CartItem = { productId: string; merchantId: string; merchantName: string; productName: string; unit: string; unitPrice: number; quantity: number; availableQuantity: number; imageUrl: string };
 type DirectRequestMode = "manual" | "image" | "pdf" | "voice";
 
 export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSectionProps) {
@@ -42,6 +43,13 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
   const [requestAnalysisNote, setRequestAnalysisNote] = useState("");
   const [requestRecording, setRequestRecording] = useState(false);
   const [requestRecordingSeconds, setRequestRecordingSeconds] = useState(0);
+  const [cartItems, setCartItems] = useState<Record<string, CartItem>>({});
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cartMerchantId, setCartMerchantId] = useState("");
+  const [cartPreview, setCartPreview] = useState<PortalRow | null>(null);
+  const [cartBusy, setCartBusy] = useState(false);
+  const [cartLoaded, setCartLoaded] = useState(false);
+  const [cartLoadedKey, setCartLoadedKey] = useState("");
   const requestRecorderRef = useRef<MediaRecorder | null>(null);
   const requestStreamRef = useRef<MediaStream | null>(null);
   const requestChunksRef = useRef<Blob[]>([]);
@@ -51,21 +59,92 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
   const currency = payload.account.currencyCode || text(savedLocation.currency_code, "EGP");
   const selectedMerchantId = text(selectedMerchant.merchant_id);
   const favorites = useMemo(() => initialFavorites.filter((item) => favoriteIds.has(text(item.merchant_id || item.product_id))), [initialFavorites, favoriteIds]);
+  const cartStorageKey = `buyer.catalog_cart.${payload.account.userId || "guest"}`;
+  const cartRows = useMemo(() => Object.values(cartItems), [cartItems]);
+  const selectedMerchantCart = cartRows.filter((item) => item.merchantId === selectedMerchantId);
+  const openCartRows = cartRows.filter((item) => item.merchantId === cartMerchantId);
+  const openCartSubtotal = openCartRows.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const openCartMerchantName = text(openCartRows[0]?.merchantName, text(selectedMerchant.store_name, locale === "ar" ? "سلة المتجر" : "Store cart"));
+  const totalCartQuantity = cartRows.reduce((sum, item) => sum + item.quantity, 0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timer = window.setTimeout(() => {
+      setCartLoaded(false);
+      try {
+        const raw = window.localStorage.getItem(cartStorageKey);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return;
+        const next: Record<string, CartItem> = {};
+        parsed.forEach((item) => {
+          const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+          const productId = text(row.productId || row.product_id);
+          const merchantId = text(row.merchantId || row.merchant_id);
+          const quantity = Math.max(0, numberValue(row.quantity));
+          if (!productId || !merchantId || quantity <= 0) return;
+          next[productId] = {
+            productId,
+            merchantId,
+            merchantName: text(row.merchantName || row.merchant_name),
+            productName: text(row.productName || row.product_name),
+            unit: text(row.unit),
+            unitPrice: numberValue(row.unitPrice || row.unit_price),
+            quantity,
+            availableQuantity: numberValue(row.availableQuantity || row.available_quantity),
+            imageUrl: text(row.imageUrl || row.image_url),
+          };
+        });
+        setCartItems(next);
+      } catch {
+        setCartItems({});
+      } finally {
+        setCartLoadedKey(cartStorageKey);
+        setCartLoaded(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [cartStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!cartLoaded || cartLoadedKey !== cartStorageKey) return;
+    window.localStorage.setItem(cartStorageKey, JSON.stringify(Object.values(cartItems)));
+  }, [cartItems, cartLoaded, cartLoadedKey, cartStorageKey]);
+
+  useEffect(() => {
+    if (!cartOpen || !cartMerchantId) return;
+    const items = Object.values(cartItems).filter((item) => item.merchantId === cartMerchantId);
+    if (!items.length) {
+      const emptyTimer = window.setTimeout(() => setCartPreview(null), 0);
+      return () => window.clearTimeout(emptyTimer);
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setCartBusy(true);
+      void buyerPost("preview_catalog_cart", { merchantId: cartMerchantId, items })
+        .then((result) => { if (!cancelled) setCartPreview(row(result)); })
+        .catch((error) => { if (!cancelled) notify(error instanceof Error ? error.message : "catalog_cart_preview_failed", "error"); })
+        .finally(() => { if (!cancelled) setCartBusy(false); });
+    }, 180);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [cartItems, cartMerchantId, cartOpen, notify]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const productId = new URLSearchParams(window.location.search).get("product");
     if (!productId) return;
     let cancelled = false;
-    setTab("browse"); setLoadingProducts(true);
-    void buyerPost("load_product_target", { productId }).then((result) => {
-      if (cancelled) return;
-      const target = row(result);
-      setSelectedMerchant(row(target.merchant));
-      setProducts(rows(target.products));
-      window.setTimeout(() => document.querySelector<HTMLElement>(`[data-record-id="${productId.replace(/[^a-zA-Z0-9_-]/g, "")}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 180);
-    }).catch((error) => notify(error instanceof Error ? error.message : "buyer_product_not_available", "error")).finally(() => { if (!cancelled) setLoadingProducts(false); });
-    return () => { cancelled = true; };
+    const timer = window.setTimeout(() => {
+      setTab("browse"); setLoadingProducts(true);
+      void buyerPost("load_product_target", { productId }).then((result) => {
+        if (cancelled) return;
+        const target = row(result);
+        setSelectedMerchant(row(target.merchant));
+        setProducts(rows(target.products));
+        window.setTimeout(() => document.querySelector<HTMLElement>(`[data-record-id="${productId.replace(/[^a-zA-Z0-9_-]/g, "")}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 180);
+      }).catch((error) => notify(error instanceof Error ? error.message : "buyer_product_not_available", "error")).finally(() => { if (!cancelled) setLoadingProducts(false); });
+    }, 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [notify]);
 
   useEffect(() => () => {
@@ -100,7 +179,12 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
     try {
       const result = row(await buyerPost("toggle_favorite", { favoriteType: type, targetId: id }));
       const active = result.active === true;
-      setFavoriteIds((current) => { const next = new Set(current); active ? next.add(id) : next.delete(id); return next; });
+      setFavoriteIds((current) => {
+        const next = new Set(current);
+        if (active) next.add(id);
+        else next.delete(id);
+        return next;
+      });
       if (!active && type === "product") setAlertProductIds((current) => { const next = new Set(current); next.delete(id); return next; });
       notify(locale === "ar" ? (active ? "تمت الإضافة للمفضلة." : "تمت الإزالة من المفضلة.") : (active ? "Added to favorites." : "Removed from favorites."), "success");
     } catch (error) { notify(error instanceof Error ? error.message : "favorite_failed", "error"); }
@@ -110,7 +194,12 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
     try {
       const result = row(await buyerPost("toggle_price_alert", { productId }));
       const active = result.active === true;
-      setAlertProductIds((current) => { const next = new Set(current); active ? next.add(productId) : next.delete(productId); return next; });
+      setAlertProductIds((current) => {
+        const next = new Set(current);
+        if (active) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
       if (active) setFavoriteIds((current) => new Set(current).add(productId));
       notify(locale === "ar" ? (active ? "تم تفعيل تنبيه السعر." : "تم إيقاف تنبيه السعر.") : (active ? "Price alert enabled." : "Price alert disabled."), "success");
       await refresh();
@@ -124,6 +213,70 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
       notify(locale === "ar" ? "تم إيقاف تنبيه السعر." : "Price alert stopped.", "success");
       await refresh();
     } catch (error) { notify(error instanceof Error ? error.message : "price_alert_failed", "error"); }
+  }
+
+  function addToCart(product: PortalRow) {
+    const productId = text(product.product_id);
+    const merchantId = text(product.merchant_id || selectedMerchantId);
+    if (!productId || !merchantId) return;
+    const availableQuantity = Math.max(0, numberValue(product.quantity));
+    setCartItems((current) => {
+      const currentItem = current[productId];
+      const nextQuantity = (currentItem?.quantity ?? 0) + 1;
+      if (availableQuantity > 0 && nextQuantity > availableQuantity) {
+        notify(locale === "ar" ? "الكمية المطلوبة أكبر من المتاح." : "Requested quantity exceeds available stock.", "error");
+        return current;
+      }
+      return {
+        ...current,
+        [productId]: {
+          productId,
+          merchantId,
+          merchantName: text(selectedMerchant.store_name),
+          productName: text(product.name),
+          unit: text(product.unit, locale === "ar" ? "قطعة" : "piece"),
+          unitPrice: numberValue(product.price),
+          quantity: nextQuantity,
+          availableQuantity,
+          imageUrl: text(product.image_signed_url),
+        },
+      };
+    });
+    notify(locale === "ar" ? "تمت إضافة المنتج إلى سلة المتجر." : "Product added to this store cart.", "success");
+  }
+
+  function updateCartQuantity(productId: string, quantity: number) {
+    setCartItems((current) => {
+      const currentItem = current[productId];
+      if (!currentItem) return current;
+      const next = { ...current };
+      if (quantity <= 0) delete next[productId];
+      else next[productId] = { ...currentItem, quantity: currentItem.availableQuantity > 0 ? Math.min(quantity, currentItem.availableQuantity) : quantity };
+      return next;
+    });
+  }
+
+  async function openCart(merchantId = selectedMerchantId) {
+    if (!merchantId) return;
+    setCartMerchantId(merchantId); setCartPreview(null); setCartOpen(true);
+  }
+
+  async function submitCart() {
+    if (!cartMerchantId || !openCartRows.length) return;
+    setCartBusy(true);
+    try {
+      const result = row(await buyerPost("create_catalog_cart_order", { merchantId: cartMerchantId, items: openCartRows }));
+      setCartItems((current) => {
+        const next = { ...current };
+        openCartRows.forEach((item) => delete next[item.productId]);
+        return next;
+      });
+      setCartOpen(false); setCartPreview(null);
+      notify(locale === "ar" ? "تم إرسال طلب الشراء إلى المتجر، وهو الآن في انتظار تأكيد المتجر." : "The purchase order was sent to the store and is waiting for confirmation.", "success");
+      if (text(result.order_id || result.orderId)) window.history.replaceState(null, "", `/buyer/orders?focus=${encodeURIComponent(text(result.order_id || result.orderId))}`);
+      await refresh();
+    } catch (error) { notify(error instanceof Error ? error.message : "catalog_cart_submit_failed", "error"); }
+    finally { setCartBusy(false); }
   }
 
   function resetDirectRequestInput(mode: DirectRequestMode = "manual") {
@@ -247,6 +400,10 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
 
   return <div className="portal-section-stack buyer-web-stores">
 
+    {totalCartQuantity > 0 ? <PortalPanel title={locale === "ar" ? `سلة المشتريات (${totalCartQuantity})` : `Shopping cart (${totalCartQuantity})`} subtitle={locale === "ar" ? "كل متجر له طلب منفصل. إرسال سلة متجر لا يغير سلات المتاجر الأخرى." : "Each store has a separate order. Sending one store cart does not affect the others."} action={<button className="button primary compact" type="button" onClick={() => void openCart(cartRows[0]?.merchantId)}><Icon name="receipt" size={17}/>{locale === "ar" ? "فتح السلة" : "Open cart"}</button>}>
+      <div className="cart-store-list">{[...new Map(cartRows.map((item) => [item.merchantId, item])).values()].map((item) => { const items = cartRows.filter((row) => row.merchantId === item.merchantId); const count = items.reduce((sum, row) => sum + row.quantity, 0); const subtotal = items.reduce((sum, row) => sum + row.unitPrice * row.quantity, 0); return <button className="cart-store-chip" type="button" key={item.merchantId} onClick={() => void openCart(item.merchantId)}><Icon name="store" size={17}/><span>{item.merchantName}</span><strong>{count}</strong><small>{money(subtotal, currency, locale)}</small></button>; })}</div>
+    </PortalPanel> : null}
+
     <nav className="portal-subtabs" aria-label={locale === "ar" ? "أقسام وضع المشتري" : "Buyer mode sections"}>
       {([
         ["browse", "store", "التصفح والطلب", "Browse & request"],
@@ -270,9 +427,9 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
           {merchants.length ? <div className="buyer-store-list">{merchants.map((merchant) => { const id = text(merchant.merchant_id); return <article className={selectedMerchantId === id ? "selected" : ""} key={id} data-record-id={id}>{text(merchant.storefront_signed_url) ? <img className="buyer-store-thumb" src={text(merchant.storefront_signed_url)} alt={text(merchant.store_name)}/> : <span className="avatar-placeholder"><Icon name="store"/></span>}<div className="buyer-store-copy"><strong>{text(merchant.store_name)}</strong><small>{text(locale === "ar" ? merchant.primary_category_ar : merchant.primary_category_en)} · {text(merchant.city_name)} · {numberValue(merchant.products_count)} {locale === "ar" ? "منتج" : "products"}</small></div><div className="inline-actions"><button className={`icon-button ${favoriteIds.has(id) ? "active" : ""}`} type="button" onClick={() => void favorite("merchant", id)} aria-label={locale === "ar" ? "المفضلة" : "Favorite"}><Icon name={favoriteIds.has(id) ? "check" : "target"} size={18}/></button><button className="button secondary compact" type="button" onClick={() => void openStore(merchant)}>{locale === "ar" ? "فتح" : "Open"}</button><button className="button primary compact" type="button" onClick={() => startRequest(undefined, merchant)}>{locale === "ar" ? "طلب مخصوص" : "Direct request"}</button></div></article>; })}</div> : <EmptyState icon="store" title={locale === "ar" ? "لا توجد متاجر مطابقة" : "No matching stores"} body={locale === "ar" ? "غيّر القسم أو كلمة البحث أو راجع موقع المشتري." : "Change the category or search term, or review your location."}/>} 
         </PortalPanel>
 
-        <PortalPanel title={selectedMerchantId ? text(selectedMerchant.store_name) : (locale === "ar" ? "منتجات المتجر" : "Store products")} subtitle={selectedMerchantId ? (locale === "ar" ? "ابحث داخل المتجر، احفظ منتجًا أو فعّل تنبيه سعر أو أرسل طلبًا مخصوصًا." : "Search inside the store, favorite items, enable price alerts, or send a direct request.") : undefined}>
+        <PortalPanel title={selectedMerchantId ? text(selectedMerchant.store_name) : (locale === "ar" ? "منتجات المتجر" : "Store products")} subtitle={selectedMerchantId ? (locale === "ar" ? "ابحث داخل المتجر، احفظ منتجًا أو فعّل تنبيه سعر أو أرسل طلبًا مخصوصًا." : "Search inside the store, favorite items, enable price alerts, or send a direct request.") : undefined} action={selectedMerchantCart.length ? <button className="button primary compact" type="button" onClick={() => void openCart(selectedMerchantId)}><Icon name="receipt" size={17}/>{locale === "ar" ? `سلة المتجر (${selectedMerchantCart.reduce((sum, item) => sum + item.quantity, 0)})` : `Store cart (${selectedMerchantCart.reduce((sum, item) => sum + item.quantity, 0)})`}</button> : undefined}>
           {selectedMerchantId ? <form className="buyer-product-search" onSubmit={(event) => { event.preventDefault(); void openStore(selectedMerchant, productQuery); }}><input value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder={locale === "ar" ? "ابحث داخل المتجر" : "Search this store"}/><button className="button secondary compact"><Icon name="search"/>{locale === "ar" ? "بحث" : "Search"}</button></form> : null}
-          {loadingProducts ? <p className="muted-copy">{locale === "ar" ? "جارٍ تحميل المنتجات..." : "Loading products..."}</p> : products.length ? <div className="buyer-product-grid">{products.map((product) => { const id = text(product.product_id); return <article className="buyer-product-card" key={id} data-record-id={id}>{text(product.image_signed_url) ? <img src={text(product.image_signed_url)} alt={text(product.name)}/> : <span className="buyer-product-placeholder"><Icon name="box"/></span>}<strong>{text(product.name)}</strong><span>{money(product.price, currency, locale)} / {text(product.unit)}</span><small>{locale === "ar" ? `المتاح: ${numberValue(product.quantity)}` : `Available: ${numberValue(product.quantity)}`}</small><div className="buyer-product-actions"><button className="button secondary compact" type="button" onClick={() => void favorite("product", id)}>{favoriteIds.has(id) ? (locale === "ar" ? "إزالة المفضلة" : "Unfavorite") : (locale === "ar" ? "مفضلة" : "Favorite")}</button><button className={`button secondary compact ${alertProductIds.has(id) ? "active" : ""}`} type="button" onClick={() => void toggleAlert(id)}><Icon name="bell" size={17}/>{alertProductIds.has(id) ? (locale === "ar" ? "إيقاف التنبيه" : "Stop alert") : (locale === "ar" ? "تنبيه سعر" : "Price alert")}</button><button className="button primary compact" type="button" onClick={() => startRequest(product)}>{locale === "ar" ? "طلب مخصوص" : "Direct request"}</button></div></article>; })}</div> : <EmptyState title={selectedMerchantId ? (locale === "ar" ? "لا توجد منتجات مطابقة" : "No matching products") : (locale === "ar" ? "اختار متجر" : "Choose a store")} body={selectedMerchantId ? (locale === "ar" ? "غيّر كلمة البحث داخل المتجر." : "Change the in-store search term.") : (locale === "ar" ? "اضغط فتح على أي متجر عشان تشوف منتجاته." : "Open a store to see its products.")}/>} 
+          {loadingProducts ? <p className="muted-copy">{locale === "ar" ? "جارٍ تحميل المنتجات..." : "Loading products..."}</p> : products.length ? <div className="buyer-product-grid">{products.map((product) => { const id = text(product.product_id); const cartQuantity = cartItems[id]?.quantity ?? 0; return <article className="buyer-product-card" key={id} data-record-id={id}>{text(product.image_signed_url) ? <img src={text(product.image_signed_url)} alt={text(product.name)}/> : <span className="buyer-product-placeholder"><Icon name="box"/></span>}<strong>{text(product.name)}</strong><span>{money(product.price, currency, locale)} / {text(product.unit)}</span><small>{locale === "ar" ? `المتاح: ${numberValue(product.quantity)}` : `Available: ${numberValue(product.quantity)}`}</small><div className="buyer-product-actions"><button className="button secondary compact" type="button" onClick={() => void favorite("product", id)}>{favoriteIds.has(id) ? (locale === "ar" ? "إزالة المفضلة" : "Unfavorite") : (locale === "ar" ? "مفضلة" : "Favorite")}</button><button className={`button secondary compact ${alertProductIds.has(id) ? "active" : ""}`} type="button" onClick={() => void toggleAlert(id)}><Icon name="bell" size={17}/>{alertProductIds.has(id) ? (locale === "ar" ? "إيقاف التنبيه" : "Stop alert") : (locale === "ar" ? "تنبيه سعر" : "Price alert")}</button><button className="button secondary compact" type="button" onClick={() => addToCart(product)}><Icon name="receipt" size={17}/>{cartQuantity > 0 ? (locale === "ar" ? `في السلة (${cartQuantity})` : `In cart (${cartQuantity})`) : (locale === "ar" ? "إضافة للسلة" : "Add to cart")}</button><button className="button primary compact" type="button" onClick={() => startRequest(product)}>{locale === "ar" ? "طلب مخصوص" : "Direct request"}</button></div></article>; })}</div> : <EmptyState title={selectedMerchantId ? (locale === "ar" ? "لا توجد منتجات مطابقة" : "No matching products") : (locale === "ar" ? "اختار متجر" : "Choose a store")} body={selectedMerchantId ? (locale === "ar" ? "غيّر كلمة البحث داخل المتجر." : "Change the in-store search term.") : (locale === "ar" ? "اضغط فتح على أي متجر عشان تشوف منتجاته." : "Open a store to see its products.")}/>} 
         </PortalPanel>
       </div>
     </> : null}
@@ -282,6 +439,12 @@ export function BuyerStoresSection({ payload, locale, refresh, notify }: BuyerSe
     {tab === "alerts" ? <PortalPanel title={locale === "ar" ? `تنبيهات الأسعار (${initialAlerts.length})` : `Price alerts (${initialAlerts.length})`} subtitle={locale === "ar" ? "تابع السعر الحالي وآخر حالة مسجلة." : "Track the current price and latest status."}>{initialAlerts.length ? <div className="buyer-alert-list">{initialAlerts.map((alert) => <article key={text(alert.id)}><div><strong>{text(alert.title || alert.watched_product_text)}</strong><small>{text(alert.subtitle)}</small></div><div><span>{locale === "ar" ? "السعر الحالي" : "Current"}</span><strong>{money(alert.current_price, currency, locale)}</strong></div><StatusBadge value={alert.last_price_status} locale={locale}/><button className="button secondary compact" type="button" onClick={() => void stopAlert(text(alert.id), text(alert.product_id))}>{locale === "ar" ? "إيقاف" : "Stop"}</button></article>)}</div> : <EmptyState icon="bell" title={locale === "ar" ? "لا توجد تنبيهات سعر" : "No price alerts"} body={locale === "ar" ? "فعّل تنبيه لأي منتج من تبويب التصفح." : "Enable an alert for any product from Browse."}/>}</PortalPanel> : null}
 
     {tab === "location" ? <PortalPanel title={locale === "ar" ? "موقع المشتري" : "Buyer location"} subtitle={locale === "ar" ? "الموقع ده بيحدد البلد والمنطقة والعملة ونتائج المتاجر، ويحدد العملة والنتائج المناسبة ليك." : "This controls country, area, currency, and relevant store results."}><form className="portal-form" onSubmit={saveLocation}><div className="form-grid two"><label>{locale === "ar" ? "الدولة والمحافظة والمدينة" : "Country, governorate, and city"}<select required value={cityId} onChange={(event) => setCityId(event.target.value)}><option value="">{locale === "ar" ? "اختر الموقع" : "Choose location"}</option>{locationOptions.map((location) => <option key={text(location.id)} value={text(location.id)}>{locale === "ar" ? `${text(location.country_ar)} - ${text(location.governorate_ar)} - ${text(location.name_ar)}` : `${text(location.country_en)} - ${text(location.governorate_en)} - ${text(location.name_en)}`}</option>)}</select></label><label>{locale === "ar" ? "الإحداثيات (اختياري)" : "Coordinates (optional)"}<div className="coordinate-inline"><input inputMode="decimal" value={latitude} onChange={(event) => setLatitude(event.target.value)} placeholder={locale === "ar" ? "خط العرض" : "Latitude"}/><input inputMode="decimal" value={longitude} onChange={(event) => setLongitude(event.target.value)} placeholder={locale === "ar" ? "خط الطول" : "Longitude"}/></div></label></div><div className="form-actions"><button className="button secondary" type="button" onClick={useCurrentLocation}><Icon name="location"/>{locale === "ar" ? "استخدام موقعي الحالي" : "Use current location"}</button><button className="button primary" disabled={savingLocation}>{savingLocation ? (locale === "ar" ? "جارٍ الحفظ" : "Saving") : (locale === "ar" ? "حفظ الموقع" : "Save location")}</button></div></form></PortalPanel> : null}
+
+    {cartOpen ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal buyer-request-modal" role="dialog" aria-modal="true">
+      <header><div><span className="eyebrow"><Icon name="receipt" size={17}/>{locale === "ar" ? "سلة المتجر" : "Store cart"}</span><h2>{openCartMerchantName}</h2><p>{locale === "ar" ? "راجع المنتجات والكمية والتوصيل قبل إرسال طلب الشراء للمتجر." : "Review items, quantities, and delivery before sending the purchase order to the store."}</p></div><button className="icon-button" type="button" onClick={() => setCartOpen(false)}><Icon name="close"/></button></header>
+      {openCartRows.length ? <div className="cart-modal-body"><div className="cart-item-list">{openCartRows.map((item) => <article className="cart-item-row" key={item.productId}>{item.imageUrl ? <img src={item.imageUrl} alt={item.productName}/> : <span className="buyer-product-placeholder"><Icon name="box"/></span>}<div><strong>{item.productName}</strong><small>{money(item.unitPrice, currency, locale)} / {item.unit}</small></div><input type="number" min="0" step="1" value={item.quantity} onChange={(event) => updateCartQuantity(item.productId, Number(event.target.value))}/><span>{money(item.unitPrice * item.quantity, currency, locale)}</span><button className="icon-button danger" type="button" onClick={() => updateCartQuantity(item.productId, 0)}><Icon name="trash" size={17}/></button></article>)}</div><div className="detail-list"><div><span>{locale === "ar" ? "إجمالي المنتجات" : "Products subtotal"}</span><strong>{money(openCartSubtotal, currency, locale)}</strong></div>{cartBusy ? <div><span>{locale === "ar" ? "التوصيل" : "Delivery"}</span><strong>{locale === "ar" ? "جارٍ الحساب..." : "Calculating..."}</strong></div> : cartPreview ? <><div><span>{locale === "ar" ? "التوصيل متاح" : "Delivery available"}</span><StatusBadge value={cartPreview.delivery_available === true ? "active" : "suspended"} locale={locale}/></div><div><span>{locale === "ar" ? "تكلفة التوصيل" : "Delivery cost"}</span><strong>{cartPreview.delivery_cost_pending === true ? (locale === "ar" ? "تحدد لاحقًا" : "Pending") : money(cartPreview.delivery_cost, currency, locale)}</strong></div><div><span>{locale === "ar" ? "الإجمالي النهائي" : "Final total"}</span><strong>{money(cartPreview.grand_total || openCartSubtotal, currency, locale)}</strong></div></> : <div><span>{locale === "ar" ? "التوصيل" : "Delivery"}</span><strong>{locale === "ar" ? "تعذرت المعاينة الآن، وسيعيد النظام التحقق عند الإرسال." : "Preview unavailable now; the system will recheck on submit."}</strong></div>}</div><p className="muted-copy">{locale === "ar" ? "قبل الإرسال يعيد النظام التحقق من السعر والكمية المتاحة وتكلفة التوصيل. بعد الإرسال ينتظر الطلب تأكيد المتجر." : "Before sending, Saarly rechecks price, stock, and delivery cost. The order then waits for store confirmation."}</p></div> : <EmptyState icon="receipt" title={locale === "ar" ? "السلة فارغة" : "Your cart is empty"} body={locale === "ar" ? "أضف منتجات من كتالوج المتجر أولًا." : "Add products from a store catalog first."}/>}
+      <div className="modal-actions"><button className="button secondary" type="button" onClick={() => setCartOpen(false)}>{locale === "ar" ? "إغلاق" : "Close"}</button>{openCartRows.length ? <button className="button danger-button" type="button" disabled={cartBusy} onClick={() => { setCartItems((current) => { const next = { ...current }; openCartRows.forEach((item) => delete next[item.productId]); return next; }); setCartPreview(null); }}>{locale === "ar" ? "تفريغ سلة المتجر" : "Clear store cart"}</button> : null}{openCartRows.length ? <button className="button primary" type="button" disabled={cartBusy} onClick={() => void submitCart()}><Icon name="receipt"/>{cartBusy ? (locale === "ar" ? "جارٍ الإرسال" : "Sending") : (locale === "ar" ? "إرسال طلب الشراء" : "Send purchase order")}</button> : null}</div>
+    </section></div> : null}
 
     {requestOpen ? <div className="portal-modal-backdrop" role="presentation"><section className="portal-modal buyer-request-modal" role="dialog" aria-modal="true">
       <header><div><span className="eyebrow"><Icon name="quote" size={17}/>{locale === "ar" ? "طلب مخصوص" : "Direct request"}</span><h2>{text(selectedMerchant.store_name)}</h2><p>{locale === "ar" ? "اكتب الطلب أو ارفع صورة أو PDF أو سجله بصوتك. الطلب هيوصل للمتجر ده فقط." : "Enter the request, upload an image or PDF, or record it. It is sent only to this store."}</p></div><button className="icon-button" type="button" onClick={() => { setRequestOpen(false); resetDirectRequestInput(); }}><Icon name="close"/></button></header>

@@ -25,7 +25,7 @@ export function OverviewSection({ payload, locale }: { payload: PortalPayload; l
       ) : null}
       {access === "grace_period" || access === "suspended" ? (
         <Notice tone={access === "suspended" ? "danger" : "warning"} title={statusLabel(access, locale)}>
-          {locale === "ar" ? (stopReason || "راجع صفحة الحساب والمدفوعات لتسوية حالة المتجر.") : (stopReason || "Review Billing and Payments to resolve the store status.")}
+          {locale === "ar" ? (stopReason || "راجع صفحة حالة الحساب أو تواصل مع الدعم لتسوية حالة المتجر.") : (stopReason || "Review account status or contact support to resolve the store status.")}
         </Notice>
       ) : null}
 
@@ -51,10 +51,10 @@ export function OverviewSection({ payload, locale }: { payload: PortalPayload; l
             <div><span>{locale === "ar" ? "اعتماد المتجر" : "Store approval"}</span><StatusBadge value={approval} locale={locale}/></div>
             <div><span>{locale === "ar" ? "حالة الوصول" : "Access status"}</span><StatusBadge value={access} locale={locale}/></div>
             <div><span>{locale === "ar" ? "طريقة تشغيل المتجر" : "Store mode"}</span><strong>{statusLabel(status.pricing_mode || payload.account.merchant.pricing_mode, locale)}</strong></div>
-            <div><span>{locale === "ar" ? "طريقة المحاسبة" : "Billing model"}</span><strong>{statusLabel(status.billing_preference || payload.account.merchant.billing_preference || "not_selected", locale)}</strong></div>
-            <div><span>{locale === "ar" ? "نهاية الفترة أو الاشتراك" : "Trial or subscription end"}</span><strong>{dateLabel(status.access_ends_at || status.subscription_ends_at || status.free_trial_ends_at, locale)}</strong></div>
+            <div><span>{locale === "ar" ? "استقبال طلبات جديدة" : "Receiving new work"}</span><strong>{canReceive ? (locale === "ar" ? "متاح" : "Available") : (locale === "ar" ? "متوقف" : "Paused")}</strong></div>
+            <div><span>{locale === "ar" ? "نهاية صلاحية الوصول" : "Access end"}</span><strong>{dateLabel(status.access_ends_at || status.free_trial_ends_at, locale)}</strong></div>
           </div>
-          <div className="panel-footer-actions"><Link className="button secondary compact" href="/merchant/billing">{locale === "ar" ? "فتح الحساب والاشتراك" : "Open billing"}<Icon name="arrow" size={18}/></Link></div>
+          <div className="panel-footer-actions"><Link className="button secondary compact" href="/merchant/account-status">{locale === "ar" ? "فتح حالة الحساب" : "Open account status"}<Icon name="arrow" size={18}/></Link></div>
         </PortalPanel>
 
         <PortalPanel title={locale === "ar" ? "آخر الإشعارات" : "Latest notifications"} action={<Link href="/merchant/notifications">{locale === "ar" ? "عرض الكل" : "View all"}</Link>}>

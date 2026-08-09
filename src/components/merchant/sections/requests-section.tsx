@@ -8,21 +8,30 @@ import { dateLabel, money, numberValue, rows, text, type PortalRow } from "@/com
 import type { SectionProps } from "@/components/merchant/section-props";
 
 type ItemAnswer = { rfq_item_id: string; decision: "priced" | "rejected"; unit_price: string; unit: string; note: string };
+type RequestFilter = "all" | "direct" | "broadcast" | "expiring";
+
+function requestDeliveryType(request: PortalRow) {
+  return text(request.delivery_type || request.request_type, "broadcast");
+}
 
 export function RequestsSection({ payload, locale, refresh, notify }: SectionProps) {
   const requests = rows(payload.data.requests);
   const currency = text(payload.account.currencyCode, "EGP");
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState<RequestFilter>("all");
   const [selected, setSelected] = useState<PortalRow | null>(null);
   const [answers, setAnswers] = useState<ItemAnswer[]>([]);
   const [saving, setSaving] = useState(false);
   const [visibleCount, setVisibleCount] = useState(12);
+  const [now] = useState(() => Date.now());
 
   const filtered = useMemo(() => requests.filter((request) => {
     if (filter === "all") return true;
+    const deliveryType = requestDeliveryType(request);
+    if (filter === "direct") return deliveryType === "direct";
+    if (filter === "broadcast") return deliveryType !== "direct";
     const expires = new Date(text(request.expires_at)).getTime();
-    return filter === "expiring" ? Number.isFinite(expires) && expires - Date.now() < 24 * 3600000 : rows(request.items).length > 0;
-  }), [requests, filter]);
+    return filter === "expiring" ? Number.isFinite(expires) && expires - now < 24 * 3600000 : rows(request.items).length > 0;
+  }), [requests, filter, now]);
   const visible = filtered.slice(0, visibleCount);
 
   function draftKey(requestId: string) { return `saarly-rfq-draft:${payload.account.merchantId}:${requestId}`; }
@@ -72,10 +81,10 @@ export function RequestsSection({ payload, locale, refresh, notify }: SectionPro
   return <div className="portal-section-stack">
     <Notice>{locale === "ar" ? "طلبات الكتالوج قد تتجهز تلقائيًا، والطلبات التي تحتاج قرارًا يدويًا تظهر هنا. المسودة المحلية تفضل محفوظة على نفس الجهاز فقط." : "Catalog requests may be prepared automatically. Requests requiring a manual decision appear here. Local drafts stay on this device only."}</Notice>
     <PortalPanel title={locale === "ar" ? "طلبات التسعير المفتوحة" : "Open quote requests"} subtitle={locale === "ar" ? "سعّر كل بند أو وضح إنه غير متاح ثم أرسل العرض." : "Price each item or mark it unavailable, then submit the quote."}>
-      <div className="portal-toolbar"><button className={`filter-chip ${filter === "all" ? "active" : ""}`} type="button" onClick={() => { setFilter("all"); setVisibleCount(12); }}>{locale === "ar" ? "الكل" : "All"}</button><button className={`filter-chip ${filter === "expiring" ? "active" : ""}`} type="button" onClick={() => { setFilter("expiring"); setVisibleCount(12); }}>{locale === "ar" ? "تنتهي قريبًا" : "Expiring soon"}</button><span className="toolbar-count">{locale === "ar" ? `ظاهر ${visible.length} من ${filtered.length}` : `Showing ${visible.length} of ${filtered.length}`}</span></div>
+      <div className="portal-toolbar"><button className={`filter-chip ${filter === "all" ? "active" : ""}`} type="button" onClick={() => { setFilter("all"); setVisibleCount(12); }}>{locale === "ar" ? "كل الطلبات" : "All requests"}</button><button className={`filter-chip ${filter === "direct" ? "active" : ""}`} type="button" onClick={() => { setFilter("direct"); setVisibleCount(12); }}>{locale === "ar" ? "مخصوصة لك" : "Direct"}</button><button className={`filter-chip ${filter === "broadcast" ? "active" : ""}`} type="button" onClick={() => { setFilter("broadcast"); setVisibleCount(12); }}>{locale === "ar" ? "مقارنة عامة" : "General"}</button><button className={`filter-chip ${filter === "expiring" ? "active" : ""}`} type="button" onClick={() => { setFilter("expiring"); setVisibleCount(12); }}>{locale === "ar" ? "تنتهي قريبًا" : "Expiring soon"}</button><span className="toolbar-count">{locale === "ar" ? `ظاهر ${visible.length} من ${filtered.length}` : `Showing ${visible.length} of ${filtered.length}`}</span></div>
       {visible.length === 0 ? <EmptyState icon="quote" title={locale === "ar" ? "لا توجد طلبات مفتوحة" : "No open requests"} body={locale === "ar" ? "ستظهر هنا الطلبات العامة أو الموجهة للمتجر." : "General or direct requests targeted to the store will appear here."}/> : <><div className="request-card-grid">{visible.map((request) => {
-        const items = rows(request.items); const deadline = new Date(text(request.expires_at)); const urgent = !Number.isNaN(deadline.getTime()) && deadline.getTime() - Date.now() < 24 * 3600000;
-        return <article className="request-card" key={text(request.id)} data-record-id={text(request.id)}><header><span className={`status-badge ${urgent ? "warning" : "neutral"}`}>{urgent ? (locale === "ar" ? "ينتهي قريبًا" : "Expiring soon") : (locale === "ar" ? "طلب مفتوح" : "Open request")}</span><small>{dateLabel(request.expires_at, locale)}</small></header><h3>{locale === "ar" ? `طلب تسعير يحتوي على ${items.length} بند` : `Quote request with ${items.length} items`}</h3><ul>{items.slice(0, 4).map((item) => <li key={text(item.id)}><span>{text(item.requested_name_snapshot)}</span><strong>{numberValue(item.quantity_snapshot)} {text(item.unit_snapshot)}</strong></li>)}</ul>{items.length > 4 ? <small>{locale === "ar" ? `و${items.length - 4} بنود أخرى` : `${items.length - 4} more items`}</small> : null}<button className="button primary full" type="button" onClick={() => openRequest(request)}>{locale === "ar" ? "فتح وتسعير البنود" : "Open and price items"}<Icon name="arrow" size={18}/></button></article>;
+        const items = rows(request.items); const deadline = new Date(text(request.expires_at)); const urgent = !Number.isNaN(deadline.getTime()) && deadline.getTime() - now < 24 * 3600000; const isDirect = requestDeliveryType(request) === "direct";
+        return <article className="request-card" key={text(request.id)} data-record-id={text(request.id)}><header><span className={`status-badge ${urgent ? "warn" : isDirect ? "good" : "neutral"}`}>{urgent ? (locale === "ar" ? "ينتهي قريبًا" : "Expiring soon") : isDirect ? (locale === "ar" ? "طلب مخصوص لك" : "Direct request") : (locale === "ar" ? "طلب مقارنة عام" : "General request")}</span><small>{dateLabel(request.expires_at, locale)}</small></header><h3>{isDirect ? (locale === "ar" ? `طلب مخصوص لك #${text(request.id).slice(0, 8)}` : `Direct request for you #${text(request.id).slice(0, 8)}`) : (locale === "ar" ? `طلب مقارنة عام يحتوي على ${items.length} بند` : `General comparison request with ${items.length} items`)}</h3><ul>{items.slice(0, 4).map((item) => <li key={text(item.id)}><span>{text(item.requested_name_snapshot)}</span><strong>{numberValue(item.quantity_snapshot)} {text(item.unit_snapshot)}</strong>{text(item.reason) ? <small>{text(item.reason)}</small> : null}</li>)}</ul>{items.length > 4 ? <small>{locale === "ar" ? `و${items.length - 4} بنود أخرى` : `${items.length - 4} more items`}</small> : null}<button className="button primary full" type="button" onClick={() => openRequest(request)}>{locale === "ar" ? "فتح وتسعير البنود" : "Open and price items"}<Icon name="arrow" size={18}/></button></article>;
       })}</div>{visible.length < filtered.length ? <div className="load-more-row"><button className="button secondary" type="button" onClick={() => setVisibleCount((count) => count + 12)}>{locale === "ar" ? "عرض المزيد" : "Show more"}</button></div> : null}</>}
     </PortalPanel>
 

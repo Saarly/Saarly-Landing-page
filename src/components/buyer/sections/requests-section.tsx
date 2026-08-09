@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
 import { buyerPost, buyerUpload } from "@/components/buyer/portal-client";
 import { EmptyState, Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
-import { dateLabel, money, numberValue, row, rows, statusLabel, text, type PortalRow } from "@/components/merchant/portal-utils";
+import { dateLabel, money, numberValue, row, rows, text, type PortalRow } from "@/components/merchant/portal-utils";
 import type { BuyerSectionProps } from "@/components/buyer/section-props";
 
-type Tab = "requests" | "offers" | "rfq";
+type Tab = "offers" | "requests" | "rfq";
 type OfferSort = "ranking" | "cheapest" | "nearest" | "coverage" | "rating";
 type NewMode = "manual" | "image" | "pdf" | "voice";
 type DraftItem = { name: string; quantity: number; unit: string; confidence?: number | null; needsReview?: boolean };
@@ -22,7 +22,7 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
   const location = row(data.location);
   const locationOptions = rows(data.locationOptions).filter((item) => item.is_country_marker !== true);
   const currency = payload.account.currencyCode || text(location.currency_code, "EGP");
-  const [tab, setTab] = useState<Tab>("requests");
+  const [tab, setTab] = useState<Tab>("offers");
   const [newOpen, setNewOpen] = useState(false);
   const [mode, setMode] = useState<NewMode>("manual");
   const [items, setItems] = useState<DraftItem[]>([initialItem(locale)]);
@@ -50,7 +50,12 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
   useEffect(() => {
     if (typeof window === "undefined") return;
     const requested = new URLSearchParams(window.location.search).get("new") as NewMode | null;
-    if (requested && ["manual", "image", "pdf", "voice"].includes(requested)) { setMode(requested); setNewOpen(true); }
+    if (!requested || !["manual", "image", "pdf", "voice"].includes(requested)) return;
+    const timer = window.setTimeout(() => {
+      setMode(requested);
+      setNewOpen(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
 
@@ -216,16 +221,25 @@ export function BuyerRequestsSection({ payload, locale, refresh, notify }: Buyer
     finally { setBusyId(""); }
   }
 
+  function offerItemQuantities(offerItems: PortalRow[]) {
+    return offerItems
+      .map((item) => ({
+        offer_item_id: text(item.offer_item_id || item.id),
+        quantity: numberValue(item.requested_quantity || item.requested_quantity_snapshot || item.quantity_snapshot || item.quantity, 1),
+      }))
+      .filter((item) => item.offer_item_id && item.quantity > 0);
+  }
+
   return <div className="portal-section-stack">
-    <div className="portal-subtabs"><button className={tab === "requests" ? "active" : ""} onClick={() => setTab("requests")}><Icon name="quote"/>{locale === "ar" ? `طلباتي (${requests.length})` : `Requests (${requests.length})`}</button><button className={tab === "offers" ? "active" : ""} onClick={() => setTab("offers")}><Icon name="compare"/>{locale === "ar" ? `العروض (${activeOffers.length})` : `Offers (${activeOffers.length})`}</button><button className={tab === "rfq" ? "active" : ""} onClick={() => setTab("rfq")}><Icon name="store"/>{locale === "ar" ? `ردود المتاجر (${rfqResponses.length})` : `Store responses (${rfqResponses.length})`}</button><button className="button primary compact" type="button" onClick={() => { setMode("manual"); setAnalysisQuoteId(""); setItems([initialItem(locale)]); setNewOpen(true); }}><Icon name="plus"/>{locale === "ar" ? "طلب جديد" : "New request"}</button></div>
+    <div className="portal-subtabs"><button className={tab === "offers" ? "active" : ""} onClick={() => setTab("offers")}><Icon name="compare"/>{locale === "ar" ? `عروض مستلمة (${activeOffers.length})` : `Received offers (${activeOffers.length})`}</button><button className={tab === "requests" ? "active" : ""} onClick={() => setTab("requests")}><Icon name="quote"/>{locale === "ar" ? `قيد التسعير (${requests.length})` : `Pricing (${requests.length})`}</button><button className={tab === "rfq" ? "active" : ""} onClick={() => setTab("rfq")}><Icon name="store"/>{locale === "ar" ? `ردود المتاجر (${rfqResponses.length})` : `Store responses (${rfqResponses.length})`}</button><button className="button primary compact" type="button" onClick={() => { setMode("manual"); setAnalysisQuoteId(""); setItems([initialItem(locale)]); setNewOpen(true); }}><Icon name="plus"/>{locale === "ar" ? "طلب جديد" : "New request"}</button></div>
 
     {tab === "requests" ? <PortalPanel title={locale === "ar" ? "طلبات التسعير" : "Quote requests"} subtitle={locale === "ar" ? "راجع حالة الطلب والعناصر أو اطلب ردودًا إضافية من المتاجر." : "Review request status and items, or ask stores for additional responses."}>
       {requests.length ? <div className="buyer-request-list">{requests.map((request) => { const id = text(request.id); const quoteItems = rows(request.quote_items); const direct = text(request.delivery_type) === "direct"; return <article key={id} data-record-id={id} className="buyer-request-card"><header><div><strong>{direct ? (locale === "ar" ? `طلب مخصوص: ${text(row(request.direct_contact).store_name, "متجر")}` : `Direct request: ${text(row(request.direct_contact).store_name, "Store")}`) : (locale === "ar" ? `طلب #${id.slice(0, 8)}` : `Request #${id.slice(0, 8)}`)}</strong><small>{dateLabel(request.created_at, locale)}</small></div><StatusBadge value={request.ai_review_status} locale={locale}/></header><div className="request-item-summary">{quoteItems.map((item) => <span key={text(item.id)}>{text(item.requested_name)} × {numberValue(item.quantity)} {text(item.unit)}</span>)}</div>{row(request.direct_contact).contact_mobile ? <Notice tone="success" title={locale === "ar" ? "بيانات التواصل متاحة" : "Contact is available"}>{locale === "ar" ? `المتجر: ${text(row(request.direct_contact).store_name)} — ${text(row(request.direct_contact).contact_mobile)}` : `Store: ${text(row(request.direct_contact).store_name)} — ${text(row(request.direct_contact).contact_mobile)}`}</Notice> : null}<footer><button className="button secondary compact" disabled={busyId === `generate_offers:${id}`} onClick={() => void action(id, "generate_offers", { quoteRequestId: id })}>{locale === "ar" ? "تحديث العروض" : "Refresh offers"}</button>{!direct ? <button className="button secondary compact" disabled={busyId === `create_rfq:${id}`} onClick={() => void action(id, "create_rfq", { quoteRequestId: id })}>{locale === "ar" ? "اطلب ردود متاجر" : "Ask stores"}</button> : null}<button className="button danger-button compact" disabled={busyId === `delete_quote:${id}`} onClick={() => void action(id, "delete_quote", { quoteRequestId: id })}>{locale === "ar" ? "حذف" : "Delete"}</button></footer></article>; })}</div> : <EmptyState icon="quote" title={locale === "ar" ? "مفيش طلبات تسعير" : "No quote requests"} body={locale === "ar" ? "أنشئ طلبًا يدويًا أو ارفع صورة أو PDF أو تسجيلًا صوتيًا." : "Create a manual request or upload an image, PDF, or voice file."}/>} 
     </PortalPanel> : null}
 
-    {tab === "offers" ? <PortalPanel title={locale === "ar" ? "العروض المتاحة" : "Available offers"} subtitle={locale === "ar" ? "قارن التغطية والسعر والتوصيل قبل القبول." : "Compare coverage, price, and delivery before accepting."}>
+    {tab === "offers" ? <PortalPanel title={locale === "ar" ? "عروض مستلمة" : "Received offers"} subtitle={locale === "ar" ? "قارن التغطية والسعر والتوصيل قبل القبول." : "Compare coverage, price, and delivery before accepting."}>
       <div className="portal-toolbar offer-sort-toolbar"><label>{locale === "ar" ? "ترتيب العروض" : "Sort offers"}<select value={offerSort} onChange={(event) => setOfferSort(event.target.value as OfferSort)}><option value="ranking">{locale === "ar" ? "الترتيب الأنسب" : "Best match"}</option><option value="cheapest">{locale === "ar" ? "الأقل سعرًا" : "Lowest price"}</option><option value="nearest">{locale === "ar" ? "الأقرب" : "Nearest"}</option><option value="coverage">{locale === "ar" ? "أعلى تغطية" : "Highest coverage"}</option><option value="rating">{locale === "ar" ? "أعلى تقييم" : "Highest rating"}</option></select></label><span className="toolbar-count">{locale === "ar" ? `${sortedOffers.length} عرض` : `${sortedOffers.length} offers`}</span></div>
-      {sortedOffers.length ? <div className="offer-card-grid">{sortedOffers.map((offer) => { const id = text(offer.id); const offerItems = rows(offer.items); const reason = row(offer.ranking_reason); const distance = numberValue(reason.distance_km, -1); return <article key={id} data-record-id={text(offer.quote_request_id || id)} className="offer-card"><header><div><strong>{text(offer.store_name, locale === "ar" ? "عرض متجر" : "Store offer")}</strong><small>{locale === "ar" ? `تغطية ${numberValue(offer.coverage_percentage)}%` : `${numberValue(offer.coverage_percentage)}% coverage`}</small></div><StatusBadge value={offer.status} locale={locale}/></header><div className="offer-comparison-strip"><span><Icon name="money" size={16}/>{money(offer.total_price_snapshot, currency, locale)}</span>{distance >= 0 ? <span><Icon name="location" size={16}/>{locale === "ar" ? `${distance.toFixed(1)} كم` : `${distance.toFixed(1)} km`}</span> : null}<span><Icon name="check" size={16}/>{numberValue(offer.coverage_percentage)}%</span></div><div className="request-item-summary">{offerItems.map((item) => <span className={item.is_available === false ? "unavailable" : ""} key={text(item.id)}>{text(item.matched_name_snapshot || item.requested_name)} — {money(item.line_total_snapshot, currency, locale)}</span>)}</div><footer><button className="button primary full" disabled={busyId === `accept_offer:${id}`} onClick={() => void action(id, "accept_offer", { offerId: id })}><Icon name="check"/>{locale === "ar" ? "قبول العرض" : "Accept offer"}</button></footer></article>; })}</div> : <EmptyState icon="compare" title={locale === "ar" ? "مفيش عروض فعالة" : "No active offers"} body={locale === "ar" ? "حدّث عروض الطلب أو أرسل طلبًا للمتاجر." : "Refresh request offers or ask stores to respond."}/>} 
+      {sortedOffers.length ? <div className="offer-card-grid">{sortedOffers.map((offer) => { const id = text(offer.id); const offerItems = rows(offer.items); const reason = row(offer.ranking_reason); const distance = numberValue(reason.distance_km, -1); return <article key={id} data-record-id={text(offer.quote_request_id || id)} className="offer-card"><header><div><strong>{text(offer.store_name, locale === "ar" ? "عرض متجر" : "Store offer")}</strong><small>{locale === "ar" ? `تغطية ${numberValue(offer.coverage_percentage)}%` : `${numberValue(offer.coverage_percentage)}% coverage`}</small></div><StatusBadge value={offer.status} locale={locale}/></header><div className="offer-comparison-strip"><span><Icon name="money" size={16}/>{money(offer.total_price_snapshot, currency, locale)}</span>{distance >= 0 ? <span><Icon name="location" size={16}/>{locale === "ar" ? `${distance.toFixed(1)} كم` : `${distance.toFixed(1)} km`}</span> : null}<span><Icon name="check" size={16}/>{numberValue(offer.coverage_percentage)}%</span></div><div className="request-item-summary">{offerItems.map((item) => <span className={item.is_available === false ? "unavailable" : ""} key={text(item.id)}>{text(item.matched_name_snapshot || item.requested_name)} — {money(item.line_total_snapshot, currency, locale)}</span>)}</div><footer><button className="button primary full" disabled={busyId === `accept_offer:${id}`} onClick={() => void action(id, "accept_offer", { offerId: id, itemQuantities: offerItemQuantities(offerItems) })}><Icon name="check"/>{locale === "ar" ? "قبول العرض" : "Accept offer"}</button></footer></article>; })}</div> : <EmptyState icon="compare" title={locale === "ar" ? "لا توجد عروض مستلمة حاليًا" : "No received offers right now"} body={locale === "ar" ? "حدّث عروض الطلب أو أرسل طلبًا للمتاجر." : "Refresh request offers or ask stores to respond."}/>} 
     </PortalPanel> : null}
 
     {tab === "rfq" ? <PortalPanel title={locale === "ar" ? "ردود المتاجر" : "Store responses"} subtitle={locale === "ar" ? "ردود التسعير اليدوية للطلبات العامة والمخصوصة." : "Manual store responses for broadcast and direct requests."}>

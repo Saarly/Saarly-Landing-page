@@ -226,7 +226,7 @@ export function HomePage() {
 
       <section className="hero-section">
         <div className="container hero-grid">
-          <div className="hero-copy reveal" data-reveal>
+          <div className="hero-copy reveal is-visible" data-reveal>
             <span className="eyebrow hero-eyebrow"><Icon name="receipt" size={18} />{locale === "ar" ? "طلب واحد، مقارنة أوضح" : "One request, clearer comparison"}</span>
             <h1>
               {locale === "ar" ? (
@@ -323,7 +323,7 @@ export function HomePage() {
           <div className="merchant-copy reveal" data-reveal>
             <span className="eyebrow light"><Icon name="store" />{locale === "ar" ? "مساحة عمل المتجر" : "Store workspace"}</span>
             <h2 className="merchant-main-title">{locale === "ar" ? (<><span>كل ما تحتاجه للإدارة</span><span>في مكان واحد</span></>) : (<><span>Everything you need to manage</span><span>in one place</span></>)}</h2>
-            <p>{locale === "ar" ? "بعد اعتماد المتجر، استخدم الحساب نفسه لمتابعة المنتجات والفروع والموظفين والطلبات والحساب من الكمبيوتر أو التطبيق." : "After approval, use the same account to manage products, branches, staff, requests, and billing from desktop or mobile."}</p>
+            <p>{locale === "ar" ? "بعد اعتماد المتجر، استخدم الحساب نفسه لمتابعة المنتجات والفروع والموظفين والطلبات وحالة الحساب من الكمبيوتر أو التطبيق." : "After approval, use the same account to manage products, branches, staff, requests, and account status from desktop or mobile."}</p>
             <div className="merchant-cta">
               <Link className="button light-primary" href="/merchant-register">{locale === "ar" ? "ابدأ تسجيل المتجر" : "Start merchant registration"}<Icon name="arrow" /></Link>
               <a className="button light-secondary" href="#download">{locale === "ar" ? "سجّل متجرك من التطبيق" : "Register through the app"}</a>
@@ -345,11 +345,11 @@ export function HomePage() {
           <div className="why-copy">
             <span className="eyebrow light"><Icon name="shield" />{locale === "ar" ? "الثقة والأمان" : "Trust and safety"}</span>
             <h2>{locale === "ar" ? "المعلومات الحساسة تظهر فقط في المسار المسموح" : "Sensitive information appears only in the authorised flow"}</h2>
-            <p>{locale === "ar" ? "تخضع المتاجر للمراجعة قبل استقبال الطلبات، وتظل مستندات التحقق وإثباتات الدفع داخل تخزين خاص، مع صلاحيات محددة للوصول." : "Stores are reviewed before receiving requests. Verification documents and payment proofs remain in private storage with controlled access."}</p>
+            <p>{locale === "ar" ? "تخضع المتاجر للمراجعة قبل استقبال الطلبات، وتظل مستندات التحقق داخل تخزين خاص، مع صلاحيات محددة للوصول." : "Stores are reviewed before receiving requests. Verification documents remain in private storage with controlled access."}</p>
           </div>
           <div className="security-list">
             <div><span><Icon name="shield" /></span><div><strong>{locale === "ar" ? "صلاحيات واضحة" : "Clear permissions"}</strong><small>{locale === "ar" ? "الوصول حسب دور المستخدم" : "Access based on user role"}</small></div></div>
-            <div><span><Icon name="receipt" /></span><div><strong>{locale === "ar" ? "مدفوعات منفصلة" : "Separated payments"}</strong><small>{locale === "ar" ? "فصل اشتراك المتجر عن طلبات المشتري" : "Store billing is separated from buyer orders"}</small></div></div>
+            <div><span><Icon name="receipt" /></span><div><strong>{locale === "ar" ? "شراء المشترين مستقل" : "Buyer purchases stay separate"}</strong><small>{locale === "ar" ? "طلبات المنتجات لا تختلط باشتراك المتجر في سعرلي" : "Product orders do not mix with Saarly merchant subscription"}</small></div></div>
             <div><span><Icon name="mail" /></span><div><strong>{locale === "ar" ? "دعم وسياسات واضحة" : "Support and clear policies"}</strong><small>{locale === "ar" ? "قنوات مساعدة وإدارة للحساب" : "Help and account-management channels"}</small></div></div>
           </div>
         </div>

@@ -4,8 +4,9 @@ import { PortalError, requireMerchant } from "@/lib/merchant-auth";
 export const dynamic = "force-dynamic";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const PROOF_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
-const ID_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const DOCUMENT_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
+const BRANCH_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
+const PAYMENT_PROOF_MAX_BYTES = 10 * 1024 * 1024;
 
 function extension(file: File) {
   const byName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -48,29 +49,30 @@ export async function POST(request: NextRequest) {
       pathPrefix = `${context.user.id}/portal-imports`;
       allowed = new Set(["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/octet-stream"]);
       maxBytes = 15 * 1024 * 1024;
-    } else if (kind === "payment-proof") {
-      if (!context.isOwner) throw new PortalError("merchant_owner_required", 403);
-      bucket = "merchant-payment-proofs";
-      pathPrefix = `${context.merchantId}/portal-payments`;
-      allowed = PROOF_TYPES;
     } else if (kind === "branch-front") {
       if (!context.isOwner) throw new PortalError("merchant_owner_required", 403);
       bucket = "storefront-photos";
       pathPrefix = `${context.user.id}/portal-branches`;
       allowed = IMAGE_TYPES;
-      maxBytes = 10 * 1024 * 1024;
+      maxBytes = BRANCH_DOCUMENT_MAX_BYTES;
     } else if (kind === "branch-manager-front" || kind === "branch-manager-back") {
       if (!context.isOwner) throw new PortalError("merchant_owner_required", 403);
       bucket = "merchant-ids";
       pathPrefix = `${context.user.id}/portal-branches`;
-      allowed = ID_TYPES;
-      maxBytes = 10 * 1024 * 1024;
+      allowed = IMAGE_TYPES;
+      maxBytes = BRANCH_DOCUMENT_MAX_BYTES;
     } else if (kind === "branch-commercial-register") {
       if (!context.isOwner) throw new PortalError("merchant_owner_required", 403);
       bucket = "commercial-registers";
       pathPrefix = `${context.user.id}/portal-branches`;
-      allowed = ID_TYPES;
-      maxBytes = 10 * 1024 * 1024;
+      allowed = DOCUMENT_TYPES;
+      maxBytes = BRANCH_DOCUMENT_MAX_BYTES;
+    } else if (kind === "subscription-payment-proof") {
+      if (!context.isOwner) throw new PortalError("merchant_owner_required", 403);
+      bucket = "merchant-payment-proofs";
+      pathPrefix = `${context.merchantId}/portal-subscriptions`;
+      allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+      maxBytes = PAYMENT_PROOF_MAX_BYTES;
     } else {
       throw new PortalError("unsupported_upload_kind");
     }

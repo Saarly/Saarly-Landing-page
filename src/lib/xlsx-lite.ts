@@ -128,8 +128,19 @@ function normalizeHeader(value: string) {
     "size": "size", "المقاس": "size",
     "color": "color", "اللون": "color",
     "category id": "categoryId", "category": "category", "القسم": "category", "معرف القسم": "categoryId",
+    "available": "isAvailable", "is available": "isAvailable", "availability": "isAvailable",
+    "shipping weight": "shippingWeightKg", "shipping weight kg": "shippingWeightKg", "weight": "shippingWeightKg", "weight kg": "shippingWeightKg",
+    "delivery pricing method": "deliveryPricingMethod", "delivery method": "deliveryPricingMethod", "shipping method": "deliveryPricingMethod",
   };
   return map[normalized] ?? normalized.replace(/\s+/g, "");
+}
+
+function booleanCell(value: unknown, fallback = true) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (["yes", "true", "1", "available", "متاح", "نعم"].includes(normalized)) return true;
+  if (["no", "false", "0", "unavailable", "غير متاح", "لا"].includes(normalized)) return false;
+  return fallback;
 }
 
 export function spreadsheetProducts(rows: string[][], categories: Array<{ id: string; ar: string; en: string }>) {
@@ -151,6 +162,9 @@ export function spreadsheetProducts(rows: string[][], categories: Array<{ id: st
       size: String(item.size ?? "").trim(),
       color: String(item.color ?? "").trim(),
       categoryId: String(item.categoryId ?? "").trim(),
+      isAvailable: booleanCell(item.isAvailable, true),
+      shippingWeightKg: Number(String(item.shippingWeightKg ?? "0").replace(/[^0-9.-]/g, "")) || 0,
+      deliveryPricingMethod: String(item.deliveryPricingMethod ?? "").trim(),
     };
   }).filter((item) => item.name.length >= 2);
 }

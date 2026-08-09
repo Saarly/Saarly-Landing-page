@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Brand } from "@/components/brand";
 import { Icon } from "@/components/icons";
+import { AccountStatusSection } from "@/components/merchant/sections/account-status-section";
 import { BuyerModeSection } from "@/components/merchant/sections/buyer-mode-section";
 import { DeliverySection } from "@/components/merchant/sections/delivery-section";
 import { HoursSection } from "@/components/merchant/sections/hours-section";
@@ -11,27 +12,26 @@ import { ImportsSection } from "@/components/merchant/sections/imports-section";
 import { ReferralsSection } from "@/components/merchant/sections/referrals-section";
 import { ReportsSection } from "@/components/merchant/sections/reports-section";
 import { ReviewsSection } from "@/components/merchant/sections/reviews-section";
+import { SubscriptionsSection } from "@/components/merchant/sections/subscriptions-section";
 import { SupportSection } from "@/components/merchant/sections/support-section";
-import { BillingSection } from "@/components/merchant/sections/billing-section";
 import { BranchesSection } from "@/components/merchant/sections/branches-section";
 import { EmployeesSection } from "@/components/merchant/sections/employees-section";
 import { NotificationsSection } from "@/components/merchant/sections/notifications-section";
 import { OrdersSection } from "@/components/merchant/sections/orders-section";
 import { OverviewSection } from "@/components/merchant/sections/overview-section";
-import { PaymentsSection } from "@/components/merchant/sections/payments-section";
 import { ProductsSection } from "@/components/merchant/sections/products-section";
 import { RequestsSection } from "@/components/merchant/sections/requests-section";
 import { SettingsSection } from "@/components/merchant/sections/settings-section";
 import { StoreSection } from "@/components/merchant/sections/store-section";
 import { portalGet } from "@/components/merchant/portal-client";
 import { Notice } from "@/components/merchant/portal-ui";
-import { humanError, numberValue, row, rows, statusLabel, text, type PortalPayload } from "@/components/merchant/portal-utils";
+import { humanError, numberValue, row, statusLabel, text, type PortalPayload } from "@/components/merchant/portal-utils";
 import { useSitePreferences } from "@/components/site-preferences";
 import { merchantLinks } from "@/lib/content";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 const sectionIcons: Record<string, Parameters<typeof Icon>[0]["name"]> = {
-  overview: "dashboard", store: "store", products: "box", imports: "upload", requests: "quote", orders: "receipt", branches: "branch", hours: "clock", delivery: "location", reports: "compare", reviews: "check", employees: "users", notifications: "bell", referrals: "target", support: "quote", buyer: "globe", billing: "money", payments: "card", settings: "settings",
+  overview: "dashboard", store: "store", products: "box", imports: "upload", requests: "quote", orders: "receipt", branches: "branch", hours: "clock", delivery: "location", reports: "compare", reviews: "check", "account-status": "shield", subscriptions: "card", employees: "users", notifications: "bell", referrals: "target", support: "quote", buyer: "globe", settings: "settings",
 };
 
 const sectionTitles: Record<string, { ar: string; en: string; bodyAr: string; bodyEn: string }> = {
@@ -46,23 +46,24 @@ const sectionTitles: Record<string, { ar: string; en: string; bodyAr: string; bo
   delivery: { ar: "التوصيل والشحن", en: "Delivery and shipping", bodyAr: "سعر ثابت أو حسب المنطقة أو الوزن وشركات الشحن.", bodyEn: "Flat, zone, or weight pricing and shipping companies." },
   reports: { ar: "التقارير", en: "Reports", bodyAr: "المبيعات والنمو وأداء الفروع والتقييمات.", bodyEn: "Sales, growth, branch performance, and ratings." },
   reviews: { ar: "تقييمات العملاء", en: "Buyer reviews", bodyAr: "كل التقييمات المرتبطة بطلبات حقيقية.", bodyEn: "All reviews linked to real orders." },
+  "account-status": { ar: "حالة الحساب", en: "Account status", bodyAr: "حالة اعتماد المتجر واستقباله للطلبات والتسعيرات، مع فصل مشتريات العملاء عن اشتراك سعرلي.", bodyEn: "Store approval and receiving status, while buyer purchases stay separate from Saarly subscription." },
+  subscriptions: { ar: "الاشتراكات والدفع", en: "Subscriptions and payments", bodyAr: "اختيار الخطة ورفع إثبات التحويل ومتابعة معاملات اشتراك المتجر في سعرلي من الويب فقط.", bodyEn: "Choose a plan, upload transfer proof, and track Saarly merchant subscription payments from web only." },
   employees: { ar: "الموظفون والصلاحيات", en: "Staff and permissions", bodyAr: "وزع الأدوات والفروع المسموحة لكل موظف.", bodyEn: "Assign tools and allowed branches to each staff member." },
   notifications: { ar: "الإشعارات", en: "Notifications", bodyAr: "افتح كل إشعار على الصفحة والطلب المقصود.", bodyEn: "Open every notification at its intended page and record." },
   referrals: { ar: "الدعوات والمكافآت", en: "Referrals and rewards", bodyAr: "الرابط والتسجيلات المؤكدة وحالة المكافأة.", bodyEn: "Referral link, confirmed registrations, and reward status." },
   support: { ar: "دعم سعرلي", en: "Saarly support", bodyAr: "محادثة واحدة متزامنة بين الموقع والتطبيق.", bodyEn: "One conversation synced between website and app." },
   buyer: { ar: "وضع المشتري", en: "Buyer mode", bodyAr: "تصفح المتاجر والمنتجات بدون ظهور متجرك لنفسك.", bodyEn: "Browse stores and products while hiding your own store." },
-  billing: { ar: "الاشتراك والحساب", en: "Billing and subscription", bodyAr: "حالة الوصول والخطط وإثباتات التحويل.", bodyEn: "Access status, plans, and transfer proofs." },
-  payments: { ar: "المدفوعات والعمولات", en: "Payments and commissions", bodyAr: "السجل المحاسبي والعمولات والتسويات.", bodyEn: "Billing ledger, commissions, and settlements." },
   settings: { ar: "الإعدادات", en: "Settings", bodyAr: "اللغة والمظهر والدعم وإجراءات الحساب.", bodyEn: "Language, appearance, support, and account actions." },
 };
 
 type Toast = { id: number; message: string; tone: "success" | "error" | "info" };
 
 function permissionAllows(payload: PortalPayload, section: string) {
+  if (section === "subscriptions") return payload.account.isOwner;
   if (payload.account.isOwner) return true;
   const permissions = row(payload.account.staff?.permissions);
   const aliases: Record<string, string[]> = {
-    overview: ["dashboard"], store: ["store"], products: ["products"], imports: ["imports", "products"], requests: ["rfqs"], orders: ["orders"], branches: ["branches"], hours: ["hours"], delivery: ["delivery"], reports: ["reports"], reviews: ["reports"], notifications: ["notifications", "dashboard"], referrals: ["referrals"], support: ["support"], buyer: ["buyer_mode"], billing: ["billing"], payments: ["billing"], settings: ["settings"],
+    overview: ["dashboard"], store: ["store"], products: ["products"], imports: ["imports", "products"], requests: ["rfqs"], orders: ["orders"], branches: ["branches"], hours: ["hours"], delivery: ["delivery"], reports: ["reports"], reviews: ["reports"], "account-status": ["account_status", "dashboard", "settings"], subscriptions: ["billing", "subscriptions", "account_status"], notifications: ["notifications", "dashboard"], referrals: ["referrals"], support: ["support"], buyer: ["buyer_mode"], settings: ["settings"],
   };
   return (aliases[section] ?? []).some((key) => permissions[key] === true);
 }
@@ -94,8 +95,17 @@ export function MerchantPortal({ section = "overview" }: { section?: string }) {
   }, [activeSection]);
 
   useEffect(() => {
-    if (!supabaseConfigured) { setLoading(false); setError("supabase_not_configured"); return; }
-    void load();
+    if (!supabaseConfigured) {
+      const timer = window.setTimeout(() => {
+        setLoading(false);
+        setError("supabase_not_configured");
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   const navLinks = useMemo(() => {
@@ -168,13 +178,13 @@ function SectionRenderer({ section, payload, locale, refresh, notify }: { sectio
     case "delivery": return <DeliverySection {...props}/>;
     case "reports": return <ReportsSection {...props}/>;
     case "reviews": return <ReviewsSection {...props}/>;
+    case "account-status": return <AccountStatusSection {...props}/>;
+    case "subscriptions": return <SubscriptionsSection {...props}/>;
     case "employees": return <EmployeesSection {...props}/>;
     case "notifications": return <NotificationsSection {...props}/>;
     case "referrals": return <ReferralsSection {...props}/>;
     case "support": return <SupportSection {...props}/>;
     case "buyer": return <BuyerModeSection {...props}/>;
-    case "billing": return <BillingSection {...props}/>;
-    case "payments": return <PaymentsSection {...props}/>;
     case "settings": return <SettingsSection {...props}/>;
     default: return <OverviewSection payload={payload} locale={locale}/>;
   }

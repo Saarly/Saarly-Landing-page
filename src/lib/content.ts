@@ -39,18 +39,18 @@ export const merchantLinks = [
   { href: "/merchant/delivery", ar: "التوصيل والشحن", en: "Delivery" },
   { href: "/merchant/reports", ar: "التقارير", en: "Reports" },
   { href: "/merchant/reviews", ar: "التقييمات", en: "Reviews" },
+  { href: "/merchant/account-status", ar: "حالة الحساب", en: "Account status" },
+  { href: "/merchant/subscriptions", ar: "الاشتراكات والدفع", en: "Subscriptions & payments" },
   { href: "/merchant/employees", ar: "الموظفون", en: "Employees" },
   { href: "/merchant/notifications", ar: "الإشعارات", en: "Notifications" },
   { href: "/merchant/referrals", ar: "الدعوات", en: "Referrals" },
   { href: "/merchant/support", ar: "دعم سعرلي", en: "Saarly support" },
-  { href: "/buyer", ar: "وضع المشتري", en: "Buyer mode" },
-  { href: "/merchant/billing", ar: "الاشتراك", en: "Billing" },
-  { href: "/merchant/payments", ar: "المدفوعات", en: "Payments" },
+  { href: "/merchant/buyer", ar: "وضع المشتري", en: "Buyer mode" },
   { href: "/merchant/settings", ar: "الإعدادات", en: "Settings" }
 ];
 
 export const merchantSections = new Set([
-  "store", "products", "imports", "requests", "orders", "branches", "hours", "delivery", "reports", "reviews", "employees", "notifications", "referrals", "support", "buyer", "billing", "payments", "settings"
+  "store", "products", "imports", "requests", "orders", "branches", "hours", "delivery", "reports", "reviews", "account-status", "subscriptions", "employees", "notifications", "referrals", "support", "buyer", "settings"
 ]);
 
 export const policies = {
@@ -74,24 +74,24 @@ export const policies = {
     ar: [
       "استخدام سعرلي يعني الالتزام بإدخال بيانات صحيحة وعدم إساءة استخدام الطلبات أو الرسائل.",
       "الأسعار والعروض يحددها التجار وقد تتغير حسب التوفر ومكان التسليم.",
-      "إدارة اشتراك التاجر والمدفوعات الخاصة به تتم من بوابة التاجر فقط."
+      "اشتراك التاجر أو أي دفع لصالح سعرلي يتم من واجهة المتجر على الويب فقط، ولا يتم من تطبيق الموبايل."
     ],
     en: [
       "Using Saarly means providing accurate data and avoiding misuse of requests or messages.",
       "Prices and offers are set by stores and may change based on availability and delivery location.",
-      "Merchant subscriptions and merchant payments are managed only through the merchant portal."
+      "Merchant subscription or payment to Saarly is handled from the merchant web portal only, not from the mobile app."
     ]
   },
   refund: {
     arTitle: "سياسة الاسترداد",
     enTitle: "Refund Policy",
     ar: [
-      "أي استرداد مرتبط باشتراك التاجر أو مدفوعاته تتم مراجعته من خلال بوابة التاجر والدعم.",
+      "أي استرداد مرتبط باشتراك التاجر أو مدفوعاته في سعرلي تتم مراجعته من خلال الدعم حسب حالة الطلب والمدة المستخدمة.",
       "طلبات الشراء بين المشتري والتاجر تخضع لتأكيد الطرفين وسياسة المتجر والقانون المحلي.",
       "نراجع الطلبات العادلة بسرعة ونبلغ صاحب الحساب عبر البريد المسجل."
     ],
     en: [
-      "Refunds related to merchant subscriptions or payments are reviewed through the merchant portal and support.",
+      "Refunds related to merchant subscriptions or Saarly payments are reviewed through support based on request status and used period.",
       "Buyer-store purchase requests depend on both parties, store policy, and local law.",
       "Fair requests are reviewed promptly and updates are sent to the registered email."
     ]

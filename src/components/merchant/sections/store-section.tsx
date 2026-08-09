@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
 import { portalPost } from "@/components/merchant/portal-client";
 import { Notice, PortalPanel, StatusBadge } from "@/components/merchant/portal-ui";
@@ -11,7 +11,7 @@ export function StoreSection({ payload, locale, refresh, notify }: SectionProps)
   const merchant = payload.account.merchant;
   const data = row(payload.data);
   const categories = rows(data.categories);
-  const selectedInitial = useMemo(() => new Set(rows(data.merchantCategories).map((item) => text(item.category_id)).filter(Boolean)), [data.merchantCategories]);
+  const selectedInitial = rows(data.merchantCategories).map((item) => text(item.category_id)).filter(Boolean);
   const [form, setForm] = useState({
     storeName: text(merchant.store_name),
     managerName: text(merchant.manager_name),
@@ -19,7 +19,7 @@ export function StoreSection({ payload, locale, refresh, notify }: SectionProps)
     contactMobile: text(merchant.contact_mobile),
     craftsmanAvailable: bool(merchant.craftsman_available),
   });
-  const [selected, setSelected] = useState<Set<string>>(selectedInitial);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(selectedInitial));
   const [saving, setSaving] = useState(false);
   const status = row(data.status);
   const approval = text(merchant.approval_status, "pending");
