@@ -475,7 +475,7 @@ async function loadSubscriptions(context: MerchantContext) {
       })[0] ?? null;
   }
 
-  const plans = rawPlans.map((plan) => {
+  const plans: Row[] = rawPlans.map((plan): Row => {
     const originalPrice = Math.max(0, finiteNumber(plan.monthly_price, 0));
     const discount = bestDiscount(value(plan.id));
     const percent = Math.min(100, Math.max(0, finiteNumber(discount?.discount_percent, 0)));
@@ -497,7 +497,7 @@ async function loadSubscriptions(context: MerchantContext) {
       is_renewal_price: isRenewal,
     };
   });
-  const planMap = new Map(plans.map((plan) => [value(plan.id), plan]));
+  const planMap = new Map<string, Row>(plans.map((plan) => [value(plan.id), plan]));
   const manualRequests = await Promise.all(((requestsResult.data ?? []) as Row[]).map(async (request) => {
     const plan = planMap.get(value(request.plan_id)) ?? objectValue(request.plan_snapshot);
     return {
