@@ -68,11 +68,12 @@ test("service role is server-only", () => {
   assert.doesNotMatch(publicSite, /SERVICE_ROLE/);
 });
 
-test("merchant portal exposes every required operating section", () => {
+test("merchant portal exposes the app workflow plus intentional web-only management surfaces", () => {
   const portal = read("src/components/merchant-portal.tsx");
-  for (const section of ["StoreSection", "ProductsSection", "RequestsSection", "OrdersSection", "BranchesSection", "EmployeesSection", "NotificationsSection", "BuyerModeSection", "AccountStatusSection", "SubscriptionsSection", "SettingsSection"]) {
+  for (const section of ["StoreSection", "ProductsSection", "RequestsSection", "OrdersSection", "BranchesSection", "EmployeesSection", "NotificationsSection", "AccountStatusSection", "SubscriptionsSection", "SettingsSection", "SupportSection", "ReferralsSection", "HoursSection", "DeliverySection", "ImportsSection"]) {
     assert.match(portal, new RegExp(section));
   }
+  assert.doesNotMatch(portal, /BuyerModeSection|href=\"\/merchant\/buyer\"/);
   assert.doesNotMatch(portal, /BillingSection|PaymentsSection/);
 });
 
@@ -93,10 +94,11 @@ test("private merchant uploads are authorized and scoped", () => {
   assert.match(upload, /file_too_large/);
 });
 
-test("portal supports real product, order, buyer-mode, subscription, and preference mutations", () => {
-  for (const action of ["save_product", "import_products", "update_order", "submit_rfq", "save_preferences", "delete_account", "create_buyer_direct_request", "set_billing_preference", "create_manual_subscription_payment_request"]) {
-    assert.match(api, new RegExp(`action === \\"${action}\\"`));
+test("portal supports active merchant mutations while buyer-mode stays disabled", () => {
+  for (const action of ["save_product", "import_products", "update_order", "submit_rfq", "save_preferences", "delete_account", "set_billing_preference", "create_manual_subscription_payment_request"]) {
+    assert.match(api, new RegExp(`action === \"${action}\"`));
   }
+  assert.match(api, /merchant_buyer_mode_disabled/);
   assert.doesNotMatch(api, /createBuyerOrderPayment|buyer_order_payment_create/i);
 });
 
@@ -117,13 +119,12 @@ test("portal GET enforces staff section permissions on the server", () => {
 
 test("staff permissions stay aligned with the Flutter merchant workspace", () => {
   const employees = read("src/components/merchant/sections/employees-section.tsx");
-  for (const permission of ["dashboard", "orders", "rfqs", "products", "imports", "branches", "hours", "delivery", "reports", "notifications", "referrals", "support", "settings", "buyer_mode"]) {
-    assert.match(employees, new RegExp(`key: \\"${permission}\\"`));
+  for (const permission of ["dashboard", "orders", "rfqs", "products", "imports", "branches", "hours", "delivery", "reports", "billing", "referrals", "support", "settings", "buyer_mode"]) {
+    assert.match(employees, new RegExp(`key: \"${permission}\"`));
   }
-  assert.match(auth, /"account-status": \["account_status", "dashboard", "settings"\]/);
-  assert.doesNotMatch(employees, /key: "billing"/);
+  assert.doesNotMatch(employees, /key: "notifications"/);
+  assert.match(auth, /"account-status": \["billing"\]/);
 });
-
 
 test("merchant sign-in uses email OTP with an actual remember-device setting", () => {
   const client = read("src/lib/supabase.ts");

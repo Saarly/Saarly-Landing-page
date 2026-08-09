@@ -1,0 +1,65 @@
+Saarly Buyer/Merchant Portal V2 — تقرير التحقق النهائي
+التاريخ: 2026-08-09
+
+1) حماية مصادر الحقيقة
+- Flutter App مقابل app.zip الأصلي: PASS — صفر اختلافات.
+- Admin Web مقابل admin web(2).zip الأصلي: PASS — صفر اختلافات.
+- Supabase: تم استخدام قراءات schema/RPC/flags فقط؛ لم يتم تنفيذ DDL/DML ولم يتم Deploy لأي Edge Function.
+
+2) الحفاظ على الـLegacy Portal
+- ملفات الـLegacy المقارنة بالأصل: 37 ملف مصدر.
+- اختلاف SHA-256 عن النسخة الأصلية: 0.
+- Active imports من src/components/legacy-portals: 0.
+- النتيجة: النسخة القديمة محفوظة للمراجعة فقط وغير مفعلة في Runtime.
+
+3) اختبارات المشروع المتاحة بدون Dependencies خارجية
+- node --test tests/*.test.mjs: PASS — 71/71، Fail=0، Skip=0.
+- TypeScript/TSX AST parse: PASS — 133 ملف، 0 parse diagnostics.
+- Relative/@ source import resolution: PASS — 458 import، missing=0.
+- Literal Icon validation: PASS — 484 استخدام، unknown=0.
+- globals.css braces: PASS — balance=0 ولا يوجد underflow.
+- package.json / tsconfig.json parsing: PASS.
+- Static asset literal references: PASS — كل المسارات موجودة، مع /favicon.ico مخدوم بواسطة Next App Router من src/app/favicon.ico.
+- Active Buyer payment component references: 0.
+- Active Merchant Buyer Mode references: 0.
+
+4) قالب استيراد المنتجات XLSX
+- تم توليد ملف عربي فعلي من product-import-template.ts.
+- ZIP/OpenXML integrity: PASS — جميع 8 ملفات الداخلية سليمة.
+- الأوراق: products / الفئات الفرعية / تعليمات.
+- أعمدة products: 15/15.
+
+5) مطابقة الملفات المرفوعة
+- لم يتم اكتشاف أي source import مفقود في Landing.
+- ملفات .env غير موجودة داخل ZIP المرفوع؛ وهذا متوقع ولا يجب تضمين الأسرار في الأرشيف.
+- node_modules غير مرفوع/غير متاح فعليًا داخل النسخة.
+
+6) Production Build داخل هذه البيئة
+الأمر:
+  npm run build
+
+النتيجة:
+  NOT RUN TO COMPLETION / ENVIRONMENT BLOCKED
+  Exit: 127
+  السبب المباشر: next: not found
+
+محاولات تثبيت dependencies في البيئة الحالية لم تكتمل بسبب عدم توفر registry/network للحزم المطلوبة، لذلك لا يتم الادعاء بنجاح Next production build هنا. هذا ليس Syntax failure تم اكتشافه في المصدر؛ الفحوص الساكنة والاختبارات أعلاه نجحت، لكن production compile الحقيقي يحتاج dependencies الموجودة في بيئة التطوير/النشر.
+
+7) Environment المطلوب عند التشغيل/النشر
+المتغيرات التي يعتمد عليها المشروع وفق المصدر الحالي تشمل على الأقل:
+- NEXT_PUBLIC_SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_ANON_KEY
+- EMAIL_DISPATCH_SECRET
+- NEXT_PUBLIC_SUPPORT_EMAIL
+- SUPPORT_NOTIFICATION_EMAIL
+مع أي متغيرات اختيارية أخرى خاصة بالموقع/السوشيال/روابط المتاجر حسب بيئة النشر.
+لا ترسل أي Service Role key أو أسرار داخل المحادثة؛ ضعها في بيئة التطوير/الاستضافة فقط.
+
+8) حدود Backend التي لم يتم تغييرها عمدًا
+- لا يوجد Electronic Checkout session/frontend contract صالح حاليًا؛ لم يتم اختراع Checkout مزيف.
+- import_my_products_web الحالي لا يحفظ كل الحقول المتقدمة الموجودة في قالب التطبيق (مثل image URLs/delivery method/shipping weight) في عملية الاستيراد نفسها؛ الواجهة توضح القيد بدل تغيير Supabase.
+- Merchant Buyer Mode معطل في Flutter الحالي؛ تم تعطيله أيضًا في Runtime الويب مع إبقاء المصدر القديم للمراجعة.
+- Buyer payment UI معطل في Flutter الحالي؛ لم تتم إعادته في الويب.
+
+الحكم:
+تنفيذ ومراجعة Source Portal V2 اكتمل ضمن الملفات المرفوعة، مع اجتياز كل الاختبارات والفحوص التي يمكن تشغيلها بدون حزم Next. الشرط الوحيد غير المثبت في هذه البيئة هو Production Build الفعلي بسبب غياب dependencies، وليس بسبب خطأ مصدر معروف.

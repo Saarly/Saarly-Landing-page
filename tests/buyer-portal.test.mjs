@@ -40,11 +40,9 @@ test("buyer portal exposes every main app section", () => {
   }
 });
 
-test("buyer server accepts buyer and approved merchant buyer-mode accounts only", () => {
-  assert.match(buyerAuth, /\["buyer", "merchant"\]/);
+test("buyer server accepts buyer accounts only because merchant buyer-mode is disabled in Flutter", () => {
+  assert.match(buyerAuth, /String\(profile\.role\) !== "buyer"/);
   assert.match(buyerAuth, /account_blocked/);
-  assert.match(buyerAuth, /merchant_pending_approval/);
-  assert.match(buyerAuth, /merchant_suspended/);
   assert.match(buyerAuth, /is_archived/);
 });
 
@@ -104,15 +102,14 @@ test("buyer notifications exclude merchant workflow notifications", () => {
   assert.match(buyerApi, /mark_all_notifications/);
 });
 
-test("accepted orders include contacts, chat, reviews, history, and read-only payment status", () => {
+test("accepted orders include contacts, chat, reviews, and history without reviving buyer payment", () => {
   assert.match(orders, /open_order_chat/);
   assert.match(orders, /send_order_chat_message/);
   assert.match(orders, /submit_review/);
   assert.match(orders, /cancel_order/);
   assert.match(orders, /delete_order/);
-  assert.match(orders, /order_payment_dashboard/);
-  assert.match(orders, /Electronic buyer payment inside Saarly is disabled for now|الدفع الإلكتروني داخل سعرلي غير مفعّل حاليًا/);
-  assert.match(buyerApi, /buyer_order_payment_dashboard/);
+  assert.doesNotMatch(orders, /order_payment_dashboard|buyer_order_payment_dashboard|checkout|pay now/i);
+  assert.match(buyerApi, /buyer_payment_not_available/);
 });
 
 test("buyer support, referrals, preferences, and profile mutations are real server actions", () => {
@@ -182,11 +179,11 @@ test("RFQ response acceptance reviews shipping companies, weight tiers, and fina
   assert.match(requests, /shippingCost/);
 });
 
-test("merchant buyer mode stays inside the merchant workspace and keeps buyer tools", () => {
-  const merchantRoute = read("src/app/merchant/[section]/page.tsx");
-  assert.match(content, /href: "\/merchant\/buyer", ar: "وضع المشتري"/);
-  assert.doesNotMatch(merchantRoute, /redirect\("\/buyer"\)/);
-  assert.match(merchantRoute, /<MerchantPortal section=\{section\}/);
+test("merchant buyer mode is intentionally disabled to match the current Flutter source", () => {
+  const merchantPortal = read("src/components/merchant-portal.tsx");
+  const merchantApi = read("src/app/api/merchant/portal/route.ts");
+  assert.doesNotMatch(merchantPortal, /BuyerModeSection|href: "\/merchant\/buyer"/);
+  assert.match(merchantApi, /merchant_buyer_mode_disabled/);
   assert.match(portal, /href="\/merchant"/);
 });
 

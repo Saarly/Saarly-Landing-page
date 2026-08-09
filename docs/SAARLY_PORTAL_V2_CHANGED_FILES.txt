@@ -1,0 +1,105 @@
+Saarly Buyer/Merchant Portal V2 — Changed Files
+Date: 2026-08-09
+
+Added: 47
+Modified: 41
+Removed from Landing source: 0
+
+=== ADDED ===
+docs/SAARLY_PORTAL_V2_CHANGED_FILES.txt
+docs/SAARLY_PORTAL_V2_IMPLEMENTATION_REPORT_AR.md
+docs/SAARLY_PORTAL_V2_PARITY_AUDIT_AR.md
+docs/SAARLY_PORTAL_V2_PARITY_CHECKLIST.md
+docs/SAARLY_PORTAL_V2_VALIDATION_AR.txt
+src/components/legacy-portals/README.md
+src/components/legacy-portals/buyer-portal.tsx
+src/components/legacy-portals/buyer/portal-client.ts
+src/components/legacy-portals/buyer/section-props.ts
+src/components/legacy-portals/buyer/sections/alerts-section.tsx
+src/components/legacy-portals/buyer/sections/favorites-section.tsx
+src/components/legacy-portals/buyer/sections/home-section.tsx
+src/components/legacy-portals/buyer/sections/notifications-section.tsx
+src/components/legacy-portals/buyer/sections/orders-section.tsx
+src/components/legacy-portals/buyer/sections/referrals-section.tsx
+src/components/legacy-portals/buyer/sections/requests-section.tsx
+src/components/legacy-portals/buyer/sections/settings-section.tsx
+src/components/legacy-portals/buyer/sections/stores-section.tsx
+src/components/legacy-portals/buyer/sections/support-section.tsx
+src/components/legacy-portals/merchant-portal.tsx
+src/components/legacy-portals/merchant/portal-client.ts
+src/components/legacy-portals/merchant/portal-ui.tsx
+src/components/legacy-portals/merchant/portal-utils.ts
+src/components/legacy-portals/merchant/section-props.ts
+src/components/legacy-portals/merchant/sections/account-status-section.tsx
+src/components/legacy-portals/merchant/sections/branches-section.tsx
+src/components/legacy-portals/merchant/sections/buyer-mode-section.tsx
+src/components/legacy-portals/merchant/sections/delivery-section.tsx
+src/components/legacy-portals/merchant/sections/employees-section.tsx
+src/components/legacy-portals/merchant/sections/hours-section.tsx
+src/components/legacy-portals/merchant/sections/imports-section.tsx
+src/components/legacy-portals/merchant/sections/notifications-section.tsx
+src/components/legacy-portals/merchant/sections/orders-section.tsx
+src/components/legacy-portals/merchant/sections/overview-section.tsx
+src/components/legacy-portals/merchant/sections/products-section.tsx
+src/components/legacy-portals/merchant/sections/referrals-section.tsx
+src/components/legacy-portals/merchant/sections/reports-section.tsx
+src/components/legacy-portals/merchant/sections/requests-section.tsx
+src/components/legacy-portals/merchant/sections/reviews-section.tsx
+src/components/legacy-portals/merchant/sections/settings-section.tsx
+src/components/legacy-portals/merchant/sections/store-section.tsx
+src/components/legacy-portals/merchant/sections/subscriptions-section.tsx
+src/components/legacy-portals/merchant/sections/support-section.tsx
+src/components/portal-v2/portal-shell.tsx
+src/components/portal-v2/referral-workspace.tsx
+src/components/portal-v2/support-workspace.tsx
+tests/portal-v2-parity.test.mjs
+
+=== MODIFIED ===
+src/app/api/buyer/portal/route.ts
+src/app/api/merchant/portal/route.ts
+src/app/api/merchant/upload/route.ts
+src/app/globals.css
+src/components/buyer-portal.tsx
+src/components/buyer/sections/home-section.tsx
+src/components/buyer/sections/notifications-section.tsx
+src/components/buyer/sections/orders-section.tsx
+src/components/buyer/sections/referrals-section.tsx
+src/components/buyer/sections/requests-section.tsx
+src/components/buyer/sections/settings-section.tsx
+src/components/buyer/sections/stores-section.tsx
+src/components/buyer/sections/support-section.tsx
+src/components/icons.tsx
+src/components/merchant-portal.tsx
+src/components/merchant/portal-client.ts
+src/components/merchant/portal-utils.ts
+src/components/merchant/sections/account-status-section.tsx
+src/components/merchant/sections/branches-section.tsx
+src/components/merchant/sections/delivery-section.tsx
+src/components/merchant/sections/employees-section.tsx
+src/components/merchant/sections/hours-section.tsx
+src/components/merchant/sections/imports-section.tsx
+src/components/merchant/sections/notifications-section.tsx
+src/components/merchant/sections/orders-section.tsx
+src/components/merchant/sections/overview-section.tsx
+src/components/merchant/sections/products-section.tsx
+src/components/merchant/sections/referrals-section.tsx
+src/components/merchant/sections/reports-section.tsx
+src/components/merchant/sections/requests-section.tsx
+src/components/merchant/sections/reviews-section.tsx
+src/components/merchant/sections/settings-section.tsx
+src/components/merchant/sections/subscriptions-section.tsx
+src/components/merchant/sections/support-section.tsx
+src/lib/buyer-auth.ts
+src/lib/merchant-auth.ts
+src/lib/product-import-template.ts
+src/lib/xlsx-lite.ts
+tests/buyer-portal.test.mjs
+tests/merchant-sync.test.mjs
+tests/portal-security.test.mjs
+
+=== REMOVED ===
+(none)
+
+Notes:
+- Existing Buyer/Merchant portal implementation was copied byte-for-byte into src/components/legacy-portals/ and is not imported by active runtime.
+- Flutter app, Admin Web, and Supabase were used read-only and were not modified.

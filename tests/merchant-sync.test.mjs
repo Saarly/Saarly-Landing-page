@@ -73,13 +73,14 @@ test("merchant RFQ requests can be filtered as direct or general requests", () =
   assert.match(requests, /مقارنة عامة/);
 });
 
-test("merchant account status is a read-only workspace page, not a checkout page", () => {
+test("merchant account status mirrors the mobile read-only status and links owners to the separate web subscription area", () => {
   assert.match(portalRoute, /section === "account-status"/);
   assert.match(portalRoute, /my_monetization_dashboard/);
   assert.match(overview, /href="\/merchant\/account-status"/);
-  assert.match(accountStatus, /Work receiving status/);
-  assert.match(accountStatus, /Buyer purchases from stores remain part of Saarly/);
-  assert.doesNotMatch(accountStatus, /Subscribe|Renew|Checkout|create_manual_payment|payment proof/i);
+  assert.match(accountStatus, /Receiving requests/);
+  assert.match(accountStatus, /Payment and renewal are available in the web portal only/);
+  assert.doesNotMatch(accountStatus, /create_manual_payment|payment proof|checkout session/i);
+  assert.match(accountStatus, /href="\/merchant\/subscriptions"/);
 });
 
 test("merchant web subscriptions use admin-managed plans and manual payment contracts", () => {
@@ -108,7 +109,8 @@ test("merchant product import has a branded XLSX template with all needed catalo
   assert.match(xlsxLite, /isAvailable/);
 });
 
-test("merchant buyer mode reuses the full buyer stores experience instead of a reduced duplicate", () => {
+test("legacy merchant buyer-mode component is preserved but inactive", async () => {
+  const merchantPortal = await read("../src/components/merchant-portal.tsx");
   assert.match(buyerMode, /BuyerStoresSection/);
-  assert.match(buyerMode, /return <BuyerStoresSection \{\.\.\.props\} \/>/);
+  assert.doesNotMatch(merchantPortal, /BuyerModeSection/);
 });
